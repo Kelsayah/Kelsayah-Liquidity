@@ -1,0 +1,131 @@
+/* Fondo general */
+.stApp {
+    background:
+        radial-gradient(circle at top right, #172033 0%, #0b111c 35%, #070b12 75%);
+    color: #f1f5f9;
+}
+
+/* Ocultar elementos innecesarios de Streamlit */
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+/* Contenedor principal */
+.block-container {
+    max-width: 1500px;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
+
+/* Cabecera */
+.dashboard-header {
+    padding: 22px 26px;
+    margin-bottom: 24px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 18px;
+    background: linear-gradient(
+        135deg,
+        rgba(20, 30, 48, 0.92),
+        rgba(9, 14, 24, 0.96)
+    );
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+}
+
+.dashboard-title {
+    margin: 0;
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -0.7px;
+    color: #f8fafc;
+}
+
+.dashboard-subtitle {
+    margin-top: 6px;
+    margin-bottom: 0;
+    font-size: 15px;
+    color: #94a3b8;
+}
+
+/* Tarjetas */
+.metric-card {
+    min-height: 145px;
+    padding: 20px;
+    margin-bottom: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: linear-gradient(
+        145deg,
+        rgba(25, 35, 53, 0.96),
+        rgba(11, 17, 28, 0.96)
+    );
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.metric-card:hover {
+    border-color: rgba(56, 189, 248, 0.35);
+    transform: translateY(-2px);
+    transition: 0.2s ease;
+}
+
+.metric-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.metric-value {
+    margin-top: 12px;
+    font-size: 29px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.metric-delta-positive {
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #34d399;
+}
+
+.metric-delta-negative {
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fb7185;
+}
+
+.metric-delta-neutral {
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+/* Secciones */
+.section-title {
+    margin-top: 18px;
+    margin-bottom: 16px;
+    font-size: 20px;
+    font-weight: 750;
+    color: #e2e8f0;
+}
+
+/* Barra lateral */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f172a 0%, #080d16 100%);
+    border-right: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+/* Botones */
+.stButton > button {
+    border-radius: 10px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    background-color: rgba(14, 165, 233, 0.12);
+    color: #e0f2fe;
+}

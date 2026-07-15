@@ -1,0 +1,15 @@
+VIX = "^VIX"
+
+SP500 = "^GSPC"
+
+NASDAQ = "^IXIC"
+
+DXY = "DX-Y.NYB"
+
+BTC = "BTC-USD"
+
+GOLD = "GC=F"
+
+SILVER = "SI=F"
+
+US10Y = "^TNX"

@@ -1,0 +1,24 @@
+# Claves y configuración privada
+.env
+.ENV
+*.ENV
+*.ENV.txt
+LIQUIDITY
+.streamlit/secrets.toml
+
+# Datos locales generados por la aplicación
+cache/
+*.log
+
+# Python y herramientas
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
