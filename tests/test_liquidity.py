@@ -12,6 +12,7 @@ from sources.liquidity import build_us_net_liquidity_history, calculate_us_net_l
 from sources.market_regime import calculate_market_regime, classify_market_regime
 from sources.macro_credit_risk import calculate_macro_credit_risk, classify_macro_risk
 from sources.section_reports import build_section_report
+from sources.report_pdf import build_report_pdf
 from sources.signals import build_markdown_report, compare_gli_with_asset, interpret_liquidity
 from sources.policy_rates import classify_policy, get_china_lpr_history, rate_change
 from sources.sentiment import (
@@ -41,6 +42,9 @@ class LiquidityTests(unittest.TestCase):
             self.assertEqual(len(report["scenarios"]), 3)
             self.assertEqual(sum(row["Probabilidad"] for row in report["scenarios"]), 100)
             self.assertIn("# Informe", report["markdown"])
+            pdf = build_report_pdf(section, report)
+            self.assertTrue(pdf.startswith(b"%PDF"))
+            self.assertGreater(len(pdf), 3000)
 
     def test_macro_credit_risk_builds_history_and_low_risk_reading(self):
         dates = pd.date_range("2022-01-01", periods=48, freq="MS")

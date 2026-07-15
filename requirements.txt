@@ -3,3 +3,4 @@ pandas>=2.2,<3
 fredapi>=0.5.2,<1
 python-dotenv>=1.0,<2
 yfinance>=0.2.50,<1
+reportlab>=4.0,<5

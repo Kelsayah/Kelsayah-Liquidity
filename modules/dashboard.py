@@ -19,6 +19,7 @@ from sources.markets import get_market_data, get_market_history
 from sources.market_regime import calculate_market_regime
 from sources.macro_credit_risk import calculate_macro_credit_risk
 from sources.section_reports import build_section_report
+from sources.report_pdf import build_report_pdf
 from sources.policy_rates import (
     build_policy_comparison, classify_policy, get_china_lpr_history, rate_change,
 )
@@ -426,13 +427,14 @@ def draw_generated_report(section: str, period: str) -> None:
             "Política monetaria": "politica-monetaria", "Mercados": "mercados",
             "Riesgo macro y crédito": "riesgo-macro-credito",
         }[section]
+        pdf_data = build_report_pdf(section, report)
         st.download_button(
-            "Descargar informe",
-            data=report["markdown"].encode("utf-8"),
-            file_name=f"informe-{slug}-{date.today().isoformat()}.md",
-            mime="text/markdown",
+            "Descargar informe PDF",
+            data=pdf_data,
+            file_name=f"informe-{slug}-{date.today().isoformat()}.pdf",
+            mime="application/pdf",
             use_container_width=True,
-            key=f"download_report_{slug}",
+            key=f"download_report_pdf_{slug}",
         )
     except Exception as error:
         st.warning(f"No se pudo generar el informe: {type(error).__name__}: {error}")

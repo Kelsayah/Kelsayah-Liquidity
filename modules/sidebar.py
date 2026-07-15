@@ -1,29 +1,13 @@
 import streamlit as st
 
 
-def draw_sidebar() -> tuple[str, str]:
+def draw_sidebar() -> str:
 
     st.sidebar.title("🌍 Global Liquidity Monitor")
 
     st.sidebar.markdown("---")
 
-    st.sidebar.subheader("Navegación")
-
-    section = st.sidebar.radio(
-        "Selecciona una sección",
-        [
-            "Resumen",
-            "Liquidez global",
-            "Política monetaria",
-            "Mercados",
-            "Riesgo macro y crédito",
-            "Datos y diagnóstico",
-        ]
-    )
-
-    st.sidebar.markdown("---")
-
-    st.sidebar.info("Versión 0.4 · Informes y escenarios")
+    st.sidebar.info("Versión 0.5 · Páginas e informes PDF")
 
     period = st.sidebar.selectbox(
         "Periodo histórico",
@@ -34,4 +18,4 @@ def draw_sidebar() -> tuple[str, str]:
     if st.sidebar.button("Actualizar datos", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
-    return section, period
+    return period
