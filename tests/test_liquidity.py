@@ -11,6 +11,7 @@ from sources.global_liquidity import (
 from sources.liquidity import build_us_net_liquidity_history, calculate_us_net_liquidity
 from sources.market_regime import calculate_market_regime, classify_market_regime
 from sources.macro_credit_risk import calculate_macro_credit_risk, classify_macro_risk
+from sources.section_reports import build_section_report
 from sources.signals import build_markdown_report, compare_gli_with_asset, interpret_liquidity
 from sources.policy_rates import classify_policy, get_china_lpr_history, rate_change
 from sources.sentiment import (
@@ -21,6 +22,26 @@ from utils.persistence import mark_series
 
 
 class LiquidityTests(unittest.TestCase):
+    def test_section_reports_generate_three_scenarios_totalling_100(self):
+        context = {
+            "market_score": 70, "market_regime": "Risk-on moderado",
+            "macro_score": 30, "macro_regime": "Riesgo moderado",
+            "gli_change4": 1.2, "inflation": 2.8, "fed_rate_change": -0.25,
+            "vix": 17.0, "sp500_above_ema200": True, "gli_above_ema200": True,
+            "gli_latest": 70.0, "dxy_change12": -1.5, "fed_rate": 4.0,
+            "yield_curve": 0.4, "sentiment": 62, "hy_spread": 3.1,
+            "nfci": -0.4, "unemployment": 4.1,
+        }
+        sections = [
+            "Resumen", "Liquidez global", "Política monetaria", "Mercados",
+            "Riesgo macro y crédito",
+        ]
+        for section in sections:
+            report = build_section_report(section, context)
+            self.assertEqual(len(report["scenarios"]), 3)
+            self.assertEqual(sum(row["Probabilidad"] for row in report["scenarios"]), 100)
+            self.assertIn("# Informe", report["markdown"])
+
     def test_macro_credit_risk_builds_history_and_low_risk_reading(self):
         dates = pd.date_range("2022-01-01", periods=48, freq="MS")
         growth = pd.Series([100 * (1.002 ** i) for i in range(48)], index=dates)

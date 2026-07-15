@@ -18,6 +18,7 @@ from sources.liquidity import (
 from sources.markets import get_market_data, get_market_history
 from sources.market_regime import calculate_market_regime
 from sources.macro_credit_risk import calculate_macro_credit_risk
+from sources.section_reports import build_section_report
 from sources.policy_rates import (
     build_policy_comparison, classify_policy, get_china_lpr_history, rate_change,
 )
@@ -365,6 +366,76 @@ def draw_macro_credit_risk(period: str) -> None:
         )
     except Exception as error:
         st.warning(f"No se pudo calcular el riesgo macro y de crédito: {type(error).__name__}: {error}")
+
+
+@st.cache_data(ttl=1800)
+def load_report_context(years: int) -> dict:
+    start = pd.Timestamp(date.today()) - pd.DateOffset(years=max(years, 3))
+    gli = load_global_liquidity(years)["GLI"].dropna()
+    sp500 = load_asset_history(years, "S&P 500").dropna()
+    vix = get_market_history(VIX, start).dropna()
+    dxy = get_market_history(DXY, start).dropna()
+    fed_rate = load_fed_rate_history(years).dropna()
+    sentiment = load_sp500_fear_greed(years).dropna()
+    market = calculate_market_regime(gli, sp500, vix, dxy, fed_rate, sentiment)
+    macro = load_macro_credit_risk(years)
+    macro_data = macro["data"].iloc[-1]
+    trends = build_gli_trends(gli)
+    sp500_weekly = sp500.resample("W-FRI").last().ffill().dropna()
+    dxy_weekly = dxy.resample("W-FRI").last().ffill().dropna()
+    fed_position = max(0, len(fed_rate) - 14)
+    return {
+        "market_score": market["score"],
+        "market_regime": market["regime"],
+        "macro_score": macro["score"],
+        "macro_regime": macro["classification"],
+        "gli_latest": float(gli.iloc[-1]),
+        "gli_change4": float(gli.pct_change(4).iloc[-1] * 100),
+        "gli_above_ema200": bool(trends["GLI"].iloc[-1] >= trends["EMA 200"].iloc[-1]),
+        "sp500_above_ema200": bool(sp500_weekly.iloc[-1] >= sp500_weekly.ewm(span=200, adjust=False).mean().iloc[-1]),
+        "vix": float(vix.iloc[-1]),
+        "dxy_change12": float(dxy_weekly.pct_change(12).iloc[-1] * 100),
+        "fed_rate": float(fed_rate.iloc[-1]),
+        "fed_rate_change": float(fed_rate.iloc[-1] - fed_rate.iloc[fed_position]),
+        "sentiment": float(sentiment.iloc[-1]),
+        "inflation": float(macro_data["Inflación interanual"]),
+        "unemployment": float(macro_data["Desempleo"]),
+        "hy_spread": float(macro_data["Spread high yield"]),
+        "nfci": float(macro_data["NFCI"]),
+        "yield_curve": float(macro_data["Curva 10Y–2Y"]),
+    }
+
+
+def draw_generated_report(section: str, period: str) -> None:
+    st.markdown('<div class="section-title">Informe automático y escenarios</div>', unsafe_allow_html=True)
+    try:
+        report = build_section_report(section, load_report_context(PERIOD_YEARS[period]))
+        st.info(report["situation"])
+        with st.expander("Señales que sustentan el diagnóstico", expanded=True):
+            for signal in report["signals"]:
+                st.write(f"• {signal}")
+        scenarios = pd.DataFrame(report["scenarios"])
+        scenarios["Probabilidad"] = scenarios["Probabilidad"].map(lambda value: f"{value}%")
+        st.dataframe(scenarios, hide_index=True, use_container_width=True)
+        st.caption(
+            "Las probabilidades suman 100% y son estimaciones heurísticas derivadas de los indicadores actuales; "
+            "no son probabilidades estadísticas calibradas ni recomendaciones de inversión."
+        )
+        slug = {
+            "Resumen": "resumen", "Liquidez global": "liquidez-global",
+            "Política monetaria": "politica-monetaria", "Mercados": "mercados",
+            "Riesgo macro y crédito": "riesgo-macro-credito",
+        }[section]
+        st.download_button(
+            "Descargar informe",
+            data=report["markdown"].encode("utf-8"),
+            file_name=f"informe-{slug}-{date.today().isoformat()}.md",
+            mime="text/markdown",
+            use_container_width=True,
+            key=f"download_report_{slug}",
+        )
+    except Exception as error:
+        st.warning(f"No se pudo generar el informe: {type(error).__name__}: {error}")
 
 
 def draw_fear_greed(period: str) -> None:
@@ -732,6 +803,12 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
     elif section == "Datos y diagnóstico":
         draw_connection_status(market_data, fred_data, net)
         st.caption("Registro local: cache/diagnostics.log")
+
+    if section in {
+        "Resumen", "Liquidez global", "Política monetaria", "Mercados",
+        "Riesgo macro y crédito",
+    }:
+        draw_generated_report(section, period)
 
     st.caption(
         "US Net Liquidity = Balance FED − TGA − Reverse Repo. "
