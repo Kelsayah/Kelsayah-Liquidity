@@ -22,7 +22,7 @@ def draw_sidebar() -> tuple[str, str]:
 
     st.sidebar.markdown("---")
 
-    st.sidebar.info("Versión 0.1")
+    st.sidebar.info("Versión 0.2 · Régimen de mercado")
 
     period = st.sidebar.selectbox(
         "Periodo histórico",
