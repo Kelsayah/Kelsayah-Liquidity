@@ -9,6 +9,7 @@ from sources.global_liquidity import (
     build_tradingview_view,
 )
 from sources.liquidity import build_us_net_liquidity_history, calculate_us_net_liquidity
+from sources.market_regime import calculate_market_regime, classify_market_regime
 from sources.signals import build_markdown_report, compare_gli_with_asset, interpret_liquidity
 from sources.policy_rates import classify_policy, get_china_lpr_history, rate_change
 from sources.sentiment import (
@@ -19,6 +20,20 @@ from utils.persistence import mark_series
 
 
 class LiquidityTests(unittest.TestCase):
+    def test_market_regime_detects_risk_on_environment(self):
+        dates = pd.date_range("2022-01-07", periods=210, freq="W-FRI")
+        rising = pd.Series(range(100, 310), index=dates, dtype=float)
+        falling_dxy = pd.Series(range(310, 100, -1), index=dates, dtype=float)
+        result = calculate_market_regime(
+            rising, rising * 20, pd.Series([14.0] * 210, index=dates),
+            falling_dxy, pd.Series([5.0] * 190 + [4.5] * 20, index=dates),
+            pd.Series([70.0] * 210, index=dates),
+        )
+        self.assertGreaterEqual(result["score"], 75)
+        self.assertEqual(result["regime"], "Risk-on fuerte")
+        self.assertEqual(len(result["details"]), 6)
+        self.assertEqual(classify_market_regime(20), "Crisis de liquidez")
+
     def test_current_calculation_and_units(self):
         result = calculate_us_net_liquidity(
             {"value": 8_000_000, "previous": 7_900_000, "error": None},

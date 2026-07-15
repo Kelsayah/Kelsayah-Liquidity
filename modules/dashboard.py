@@ -16,6 +16,7 @@ from sources.liquidity import (
     calculate_us_net_liquidity,
 )
 from sources.markets import get_market_data, get_market_history
+from sources.market_regime import calculate_market_regime
 from sources.policy_rates import (
     build_policy_comparison, classify_policy, get_china_lpr_history, rate_change,
 )
@@ -249,6 +250,47 @@ def _sentiment_gauge(title: str, history: pd.Series) -> None:
       <div style="font-size:.78rem;color:#94a3b8;margin-top:5px">{history.index[-1].strftime('%d/%m/%Y')} · {provider} · {'En directo' if status == 'live' else 'Caché local'}</div>
     </div>
     """, unsafe_allow_html=True)
+
+
+def _regime_gauge(score: float, label: str, date_value: pd.Timestamp) -> None:
+    value = max(0.0, min(100.0, float(score)))
+    angle = -90 + value * 1.8
+    st.markdown(f"""
+    <div style="background:#111827;border:1px solid #293449;border-radius:18px;padding:18px 18px 12px;text-align:center">
+      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Régimen de mercado</div>
+      <div style="position:relative;max-width:520px;height:245px;margin:auto;overflow:hidden">
+        <div style="position:absolute;width:100%;aspect-ratio:1;left:0;top:0;border-radius:50%;background:conic-gradient(from 270deg,#991b1b 0deg 36deg,#dc2626 36deg 72deg,#eab308 72deg 108deg,#65a30d 108deg 144deg,#16a34a 144deg 180deg,transparent 180deg)"></div>
+        <div style="position:absolute;width:72%;aspect-ratio:1;left:14%;top:14%;border-radius:50%;background:#111827"></div>
+        <div style="position:absolute;width:5px;height:145px;background:#f8fafc;left:calc(50% - 2px);bottom:0;transform-origin:50% 100%;transform:rotate({angle:.1f}deg);border-radius:4px;box-shadow:0 0 8px #000"></div>
+        <div style="position:absolute;width:20px;height:20px;background:#f8fafc;border-radius:50%;left:calc(50% - 10px);bottom:-10px"></div>
+        <div style="position:absolute;left:0;right:0;bottom:28px;font-size:3rem;font-weight:800;color:#f8fafc">{value:.0f}</div>
+      </div>
+      <div style="font-size:1.15rem;font-weight:800;color:#e5e7eb">{label}</div>
+      <div style="font-size:.8rem;color:#94a3b8;margin-top:6px">Datos comunes hasta {pd.Timestamp(date_value).strftime('%d/%m/%Y')}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def draw_market_regime(period: str) -> None:
+    st.markdown('<div class="section-title">Régimen de mercado · puntuación 0–100</div>', unsafe_allow_html=True)
+    try:
+        years = PERIOD_YEARS[period]
+        result = calculate_market_regime(
+            load_global_liquidity(years)["GLI"],
+            load_asset_history(years, "S&P 500"),
+            get_market_history(VIX, pd.Timestamp(date.today()) - pd.DateOffset(years=years)),
+            get_market_history(DXY, pd.Timestamp(date.today()) - pd.DateOffset(years=years)),
+            load_fed_rate_history(years),
+            load_sp500_fear_greed(years),
+        )
+        _regime_gauge(result["score"], result["regime"], result["date"])
+        st.dataframe(result["details"], hide_index=True, use_container_width=True)
+        st.caption(
+            "75–100 Risk-on fuerte · 55–74 Risk-on moderado · 45–54 Neutral · "
+            "25–44 Risk-off · 0–24 Crisis de liquidez. Es una lectura orientativa, no una recomendación."
+        )
+    except Exception as error:
+        st.warning(f"No se pudo calcular el régimen de mercado: {type(error).__name__}: {error}")
 
 
 def draw_fear_greed(period: str) -> None:
@@ -596,6 +638,7 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
 
     if section == "Resumen":
         draw_global_liquidity(period)
+        draw_market_regime(period)
         draw_policy_comparison(period)
     elif section == "Liquidez global":
         draw_global_liquidity(period)
@@ -606,6 +649,7 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
         draw_policy_comparison(period)
     elif section == "Mercados":
         draw_market_cards(market_data)
+        draw_market_regime(period)
         draw_fear_greed(period)
         draw_market_comparison(period)
         draw_gli_intelligence(period)
