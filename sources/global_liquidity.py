@@ -65,7 +65,7 @@ def build_tradingview_view(
     gli: pd.Series,
     mode: str = "Nivel",
     smoothing: int = 1,
-    offset_weeks: int = 0,
+    offset_days: int = 0,
 ) -> pd.Series:
     """Transforma el GLI semanal a vistas habituales de indicadores de TradingView."""
     if gli.empty:
@@ -88,6 +88,31 @@ def build_tradingview_view(
         raise ValueError("El suavizado debe ser al menos 1")
     if smoothing > 1:
         result = result.rolling(smoothing, min_periods=1).mean()
-    if offset_weeks:
-        result = result.shift(offset_weeks, freq="W-FRI")
+    if offset_days:
+        result.index = result.index + pd.Timedelta(days=offset_days)
+    return result.dropna()
+
+
+def build_custom_gli(history: pd.DataFrame, components: list[str]) -> pd.Series:
+    """Combina los componentes elegidos; TGA y RRP reducen la liquidez."""
+    signs = {
+        "Balance FED": ("FED", 1),
+        "Cuenta del Tesoro (TGA)": ("TGA", -1),
+        "Reverse Repo": ("Reverse Repo", -1),
+        "Balance BCE": ("BCE", 1),
+        "Balance BoJ": ("BoJ", 1),
+        "Oferta monetaria EE. UU.": ("USA M2", 1),
+        "Oferta monetaria China": ("China M2", 1),
+    }
+    if not components:
+        raise ValueError("Selecciona al menos un componente")
+    unknown = set(components).difference(signs)
+    if unknown:
+        raise ValueError(f"Componentes no reconocidos: {', '.join(sorted(unknown))}")
+    result = pd.Series(0.0, index=history.index, name="GLI personalizado")
+    for label in components:
+        column, sign = signs[label]
+        if column not in history:
+            raise ValueError(f"No hay datos para {label}")
+        result = result.add(history[column].multiply(sign), fill_value=0)
     return result.dropna()

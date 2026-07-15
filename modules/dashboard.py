@@ -8,7 +8,8 @@ from sources.analytics import compare_liquidity_with_asset
 from sources.china import get_china_m2_history
 from sources.fed import get_fred_history, get_fred_series
 from sources.global_liquidity import (
-    build_global_liquidity_index, build_gli_trends, build_tradingview_view,
+    build_custom_gli, build_global_liquidity_index, build_gli_trends,
+    build_tradingview_view,
 )
 from sources.liquidity import (
     build_us_net_liquidity_history,
@@ -92,6 +93,9 @@ def load_global_liquidity(years: int) -> pd.DataFrame:
     ecb = get_fred_history(ECB_BALANCE, start)
     boj = get_fred_history(BOJ_BALANCE, start)
     china = get_china_m2_history(start)
+    tga = get_fred_history(TGA, start)
+    reverse_repo = get_fred_history(REVERSE_REPO, start)
+    usa_m2 = get_fred_history(M2, start)
     result = build_global_liquidity_index(
         fed, ecb, boj,
         get_market_history(EURUSD, start),
@@ -99,6 +103,12 @@ def load_global_liquidity(years: int) -> pd.DataFrame:
         china,
         get_market_history(USDCNY, start),
     )
+    extra = pd.concat({
+        "TGA": tga / 1_000_000,
+        "Reverse Repo": reverse_repo / 1_000,
+        "USA M2": usa_m2 / 1_000,
+    }, axis=1).resample("W-FRI").last().ffill()
+    result = result.join(extra, how="left").ffill()
     statuses = {
         "FED": fed.attrs.get("data_status", {}).get("source", "live"),
         "BCE": ecb.attrs.get("data_status", {}).get("source", "live"),
@@ -409,6 +419,21 @@ def draw_global_liquidity(period: str) -> None:
                 "Adaptación nativa basada en la metodología pública del indicador de "
                 "QuantitativeAlpha. Conserva nuestras fuentes y fechas de actualización."
             )
+            available_components = [
+                "Balance FED", "Cuenta del Tesoro (TGA)", "Reverse Repo",
+                "Balance BCE", "Balance BoJ", "Oferta monetaria EE. UU.",
+                "Oferta monetaria China",
+            ]
+            selected_components = st.multiselect(
+                "Componentes del índice",
+                available_components,
+                default=["Balance FED", "Balance BCE", "Balance BoJ", "Oferta monetaria China"],
+                key="tradingview_gli_components",
+            )
+            st.caption(
+                "TGA y Reverse Repo se restan; el resto se suma. Pendientes de una fuente estable: "
+                "balance PBoC, otros bancos centrales y oferta monetaria de Europa y Japón."
+            )
             tv1, tv2, tv3 = st.columns([2, 1, 1])
             mode = tv1.selectbox(
                 "Lectura",
@@ -421,14 +446,18 @@ def draw_global_liquidity(period: str) -> None:
                 key="tradingview_gli_smoothing",
             )
             offset = tv3.selectbox(
-                "Desplazamiento", [0, 4, 8, 12, 16],
-                format_func=lambda value: f"{value} semanas",
+                "Desplazamiento", [0, 30, 60, 90],
+                format_func=lambda value: "Sin desplazar" if value == 0 else f"{value} días",
                 key="tradingview_gli_offset",
             )
-            tv_series = build_tradingview_view(history["GLI"], mode, smoothing, offset)
-            if tv_series.empty:
-                st.info("El periodo elegido todavía no permite calcular esta variación.")
+            if not selected_components:
+                st.warning("Selecciona al menos un componente para calcular el índice.")
             else:
+                custom_gli = build_custom_gli(history, selected_components)
+                tv_series = build_tradingview_view(custom_gli, mode, smoothing, offset)
+            if selected_components and tv_series.empty:
+                st.info("El periodo elegido todavía no permite calcular esta variación.")
+            elif selected_components:
                 value = tv_series.iloc[-1]
                 unit = "T USD" if mode == "Nivel" else "%"
                 st.metric(f"Última lectura · {mode}", f"{value:,.2f} {unit}")
@@ -440,7 +469,7 @@ def draw_global_liquidity(period: str) -> None:
             )
             st.caption(
                 "No ejecuta código Pine externo: aplica las mismas vistas analíticas al GLI "
-                "del dashboard. Un desplazamiento positivo mueve la liquidez hacia delante."
+                "del dashboard. El desplazamiento mueve la curva hacia delante en días naturales."
             )
 
         st.caption(

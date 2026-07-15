@@ -5,7 +5,8 @@ import pandas as pd
 
 from sources.analytics import compare_liquidity_with_asset
 from sources.global_liquidity import (
-    build_global_liquidity_index, build_gli_trends, build_tradingview_view,
+    build_custom_gli, build_global_liquidity_index, build_gli_trends,
+    build_tradingview_view,
 )
 from sources.liquidity import build_us_net_liquidity_history, calculate_us_net_liquidity
 from sources.signals import build_markdown_report, compare_gli_with_asset, interpret_liquidity
@@ -80,10 +81,21 @@ class LiquidityTests(unittest.TestCase):
         dates = pd.date_range("2024-01-05", periods=60, freq="W-FRI")
         gli = pd.Series(range(100, 160), index=dates, dtype=float)
         raw = build_tradingview_view(gli, "Variación mensual", 1, 0)
-        shifted = build_tradingview_view(gli, "Variación mensual", 4, 8)
+        shifted = build_tradingview_view(gli, "Variación mensual", 4, 60)
         self.assertAlmostEqual(raw.iloc[0], 4.0)
-        self.assertEqual(shifted.index[0], raw.index[0] + pd.Timedelta(weeks=8))
+        self.assertEqual(shifted.index[0], raw.index[0] + pd.Timedelta(days=60))
         self.assertIn("mensual", shifted.name)
+
+    def test_custom_gli_adds_and_subtracts_selected_components(self):
+        dates = pd.date_range("2026-01-02", periods=2, freq="W-FRI")
+        history = pd.DataFrame({
+            "FED": [8.0, 8.1], "TGA": [0.5, 0.6],
+            "Reverse Repo": [0.1, 0.1], "BCE": [7.0, 7.1],
+        }, index=dates)
+        result = build_custom_gli(
+            history, ["Balance FED", "Cuenta del Tesoro (TGA)", "Reverse Repo", "Balance BCE"]
+        )
+        self.assertAlmostEqual(result.iloc[-1], 14.5)
 
     def test_global_liquidity_adds_china_proxy_separately(self):
         dates = pd.date_range("2025-01-03", periods=4, freq="W-FRI")
