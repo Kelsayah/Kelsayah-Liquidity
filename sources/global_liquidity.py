@@ -59,3 +59,35 @@ def build_gli_trends(gli: pd.Series) -> pd.DataFrame:
             gli.ewm(span=span, adjust=False).mean().divide(gli.iloc[0]).multiply(100)
         )
     return trends
+
+
+def build_tradingview_view(
+    gli: pd.Series,
+    mode: str = "Nivel",
+    smoothing: int = 1,
+    offset_weeks: int = 0,
+) -> pd.Series:
+    """Transforma el GLI semanal a vistas habituales de indicadores de TradingView."""
+    if gli.empty:
+        raise ValueError("El GLI no contiene datos")
+    periods = {
+        "Variación interanual": 52,
+        "Variación 6 meses": 26,
+        "Variación 3 meses": 13,
+        "Variación mensual": 4,
+    }
+    if mode == "Nivel":
+        result = gli.astype(float).copy()
+        result.name = "GLI · T USD"
+    elif mode in periods:
+        result = gli.astype(float).pct_change(periods[mode]).multiply(100)
+        result.name = f"GLI · {mode} (%)"
+    else:
+        raise ValueError(f"Modo GLI no reconocido: {mode}")
+    if smoothing < 1:
+        raise ValueError("El suavizado debe ser al menos 1")
+    if smoothing > 1:
+        result = result.rolling(smoothing, min_periods=1).mean()
+    if offset_weeks:
+        result = result.shift(offset_weeks, freq="W-FRI")
+    return result.dropna()

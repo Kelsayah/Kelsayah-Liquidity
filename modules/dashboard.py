@@ -7,7 +7,9 @@ from modules.cards import draw_fred_card, draw_market_card
 from sources.analytics import compare_liquidity_with_asset
 from sources.china import get_china_m2_history
 from sources.fed import get_fred_history, get_fred_series
-from sources.global_liquidity import build_global_liquidity_index, build_gli_trends
+from sources.global_liquidity import (
+    build_global_liquidity_index, build_gli_trends, build_tradingview_view,
+)
 from sources.liquidity import (
     build_us_net_liquidity_history,
     calculate_us_net_liquidity,
@@ -401,6 +403,45 @@ def draw_global_liquidity(period: str) -> None:
             st.area_chart(history[["FED", "BCE", "BoJ", "China M2"]], y_label="Billones USD")
         with st.expander("Tendencia GLI · EMA 10, 20, 50 y 200", expanded=True):
             st.line_chart(trends, y_label="Base 100")
+
+        with st.expander("Vista TradingView · Global Liquidity Index", expanded=True):
+            st.caption(
+                "Adaptación nativa basada en la metodología pública del indicador de "
+                "QuantitativeAlpha. Conserva nuestras fuentes y fechas de actualización."
+            )
+            tv1, tv2, tv3 = st.columns([2, 1, 1])
+            mode = tv1.selectbox(
+                "Lectura",
+                ["Nivel", "Variación interanual", "Variación 6 meses", "Variación 3 meses", "Variación mensual"],
+                key="tradingview_gli_mode",
+            )
+            smoothing = tv2.selectbox(
+                "Suavizado", [1, 2, 4, 8, 13], index=2,
+                format_func=lambda value: "Sin suavizado" if value == 1 else f"{value} semanas",
+                key="tradingview_gli_smoothing",
+            )
+            offset = tv3.selectbox(
+                "Desplazamiento", [0, 4, 8, 12, 16],
+                format_func=lambda value: f"{value} semanas",
+                key="tradingview_gli_offset",
+            )
+            tv_series = build_tradingview_view(history["GLI"], mode, smoothing, offset)
+            if tv_series.empty:
+                st.info("El periodo elegido todavía no permite calcular esta variación.")
+            else:
+                value = tv_series.iloc[-1]
+                unit = "T USD" if mode == "Nivel" else "%"
+                st.metric(f"Última lectura · {mode}", f"{value:,.2f} {unit}")
+                st.line_chart(tv_series, y_label=unit)
+            st.link_button(
+                "Abrir indicador original en TradingView",
+                "https://www.tradingview.com/script/lG8KoR4f-Global-Liquidity-Index/",
+                use_container_width=True,
+            )
+            st.caption(
+                "No ejecuta código Pine externo: aplica las mismas vistas analíticas al GLI "
+                "del dashboard. Un desplazamiento positivo mueve la liquidez hacia delante."
+            )
 
         st.caption(
             "GLI ampliado = activos de FED + BCE + BoJ + China M2 como proxy, convertidos a USD. "

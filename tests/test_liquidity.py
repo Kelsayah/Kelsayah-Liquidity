@@ -4,7 +4,9 @@ import os
 import pandas as pd
 
 from sources.analytics import compare_liquidity_with_asset
-from sources.global_liquidity import build_global_liquidity_index, build_gli_trends
+from sources.global_liquidity import (
+    build_global_liquidity_index, build_gli_trends, build_tradingview_view,
+)
 from sources.liquidity import build_us_net_liquidity_history, calculate_us_net_liquidity
 from sources.signals import build_markdown_report, compare_gli_with_asset, interpret_liquidity
 from sources.policy_rates import classify_policy, get_china_lpr_history, rate_change
@@ -73,6 +75,15 @@ class LiquidityTests(unittest.TestCase):
             list(trends.columns),
             ["GLI", "EMA 10", "EMA 20", "EMA 50", "EMA 200"],
         )
+
+    def test_tradingview_view_supports_change_smoothing_and_offset(self):
+        dates = pd.date_range("2024-01-05", periods=60, freq="W-FRI")
+        gli = pd.Series(range(100, 160), index=dates, dtype=float)
+        raw = build_tradingview_view(gli, "Variación mensual", 1, 0)
+        shifted = build_tradingview_view(gli, "Variación mensual", 4, 8)
+        self.assertAlmostEqual(raw.iloc[0], 4.0)
+        self.assertEqual(shifted.index[0], raw.index[0] + pd.Timedelta(weeks=8))
+        self.assertIn("mensual", shifted.name)
 
     def test_global_liquidity_adds_china_proxy_separately(self):
         dates = pd.date_range("2025-01-03", periods=4, freq="W-FRI")
