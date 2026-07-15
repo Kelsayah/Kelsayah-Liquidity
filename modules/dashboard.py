@@ -17,6 +17,7 @@ from sources.liquidity import (
 )
 from sources.markets import get_market_data, get_market_history
 from sources.market_regime import calculate_market_regime
+from sources.macro_credit_risk import calculate_macro_credit_risk
 from sources.policy_rates import (
     build_policy_comparison, classify_policy, get_china_lpr_history, rate_change,
 )
@@ -28,7 +29,9 @@ from sources.sentiment import (
 from utils.constants import (
     BITCOIN, BOJ_BALANCE, BOJ_CALL_RATE, DXY, ECB_BALANCE, ECB_DEPOSIT_RATE,
     EURUSD, FED_BALANCE, FED_FUNDS_RATE, GOLD, M2, NASDAQ, REVERSE_REPO,
-    SP500, TGA, USDCNY, USDJPY, US10Y, VIX,
+    SP500, TGA, USDCNY, USDJPY, US10Y, VIX, FINANCIAL_CONDITIONS,
+    HIGH_YIELD_SPREAD, US_CPI, US_INDUSTRIAL_PRODUCTION, US_UNEMPLOYMENT,
+    YIELD_CURVE_10Y2Y,
 )
 
 PERIOD_YEARS = {"1 año": 1, "3 años": 3, "5 años": 5, "10 años": 10}
@@ -176,6 +179,19 @@ def load_sp500_fear_greed(years: int) -> pd.Series:
     return get_sp500_fear_greed_history(start)
 
 
+@st.cache_data(ttl=3600)
+def load_macro_credit_risk(years: int) -> dict:
+    start = pd.Timestamp(date.today()) - pd.DateOffset(years=max(years, 3))
+    return calculate_macro_credit_risk({
+        "Curva 10Y–2Y": get_fred_history(YIELD_CURVE_10Y2Y, start),
+        "Spread high yield": get_fred_history(HIGH_YIELD_SPREAD, start),
+        "NFCI": get_fred_history(FINANCIAL_CONDITIONS, start),
+        "IPC": get_fred_history(US_CPI, start),
+        "Desempleo": get_fred_history(US_UNEMPLOYMENT, start),
+        "Producción industrial": get_fred_history(US_INDUSTRIAL_PRODUCTION, start),
+    })
+
+
 def draw_header(section: str) -> None:
     st.markdown(f"""
         <div class="dashboard-header">
@@ -291,6 +307,64 @@ def draw_market_regime(period: str) -> None:
         )
     except Exception as error:
         st.warning(f"No se pudo calcular el régimen de mercado: {type(error).__name__}: {error}")
+
+
+def _macro_risk_gauge(score: float, label: str, date_value: pd.Timestamp) -> None:
+    value = max(0.0, min(100.0, float(score)))
+    angle = -90 + value * 1.8
+    st.markdown(f"""
+    <div style="background:#111827;border:1px solid #293449;border-radius:18px;padding:18px 18px 12px;text-align:center">
+      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Riesgo macro y de crédito</div>
+      <div style="position:relative;max-width:520px;height:245px;margin:auto;overflow:hidden">
+        <div style="position:absolute;width:100%;aspect-ratio:1;left:0;top:0;border-radius:50%;background:conic-gradient(from 270deg,#16a34a 0deg 36deg,#65a30d 36deg 72deg,#eab308 72deg 108deg,#f97316 108deg 144deg,#dc2626 144deg 180deg,transparent 180deg)"></div>
+        <div style="position:absolute;width:72%;aspect-ratio:1;left:14%;top:14%;border-radius:50%;background:#111827"></div>
+        <div style="position:absolute;width:5px;height:145px;background:#f8fafc;left:calc(50% - 2px);bottom:0;transform-origin:50% 100%;transform:rotate({angle:.1f}deg);border-radius:4px;box-shadow:0 0 8px #000"></div>
+        <div style="position:absolute;width:20px;height:20px;background:#f8fafc;border-radius:50%;left:calc(50% - 10px);bottom:-10px"></div>
+        <div style="position:absolute;left:0;right:0;bottom:28px;font-size:3rem;font-weight:800;color:#f8fafc">{value:.0f}</div>
+      </div>
+      <div style="font-size:1.15rem;font-weight:800;color:#e5e7eb">{label}</div>
+      <div style="font-size:.8rem;color:#94a3b8;margin-top:6px">Actualizado: {pd.Timestamp(date_value).strftime('%d/%m/%Y')}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def draw_macro_credit_risk(period: str) -> None:
+    st.markdown('<div class="section-title">Riesgo macroeconómico y de crédito</div>', unsafe_allow_html=True)
+    try:
+        result = load_macro_credit_risk(PERIOD_YEARS[period])
+        _macro_risk_gauge(result["score"], result["classification"], result["date"])
+
+        st.markdown("#### Factores que forman el indicador")
+        st.dataframe(result["details"], hide_index=True, use_container_width=True)
+
+        st.markdown("#### Evolución del riesgo agregado")
+        st.line_chart(result["history"], y_label="Riesgo 0–100")
+
+        credit_tab, conditions_tab, macro_tab = st.tabs([
+            "Crédito y curva", "Condiciones financieras", "Ciclo macro",
+        ])
+        data = result["data"]
+        with credit_tab:
+            c1, c2 = st.columns(2)
+            c1.metric("Spread high yield", f'{data["Spread high yield"].iloc[-1]:.2f}%')
+            c2.metric("Curva 10Y–2Y", f'{data["Curva 10Y–2Y"].iloc[-1]:+.2f} pp')
+            st.line_chart(data[["Spread high yield", "Curva 10Y–2Y"]], y_label="Porcentaje")
+            st.caption("Un spread high yield creciente señala mayor tensión crediticia. Una curva invertida eleva el riesgo cíclico.")
+        with conditions_tab:
+            st.metric("Chicago Fed NFCI", f'{data["NFCI"].iloc[-1]:.2f}')
+            st.line_chart(data[["NFCI"]], y_label="Índice")
+            st.caption("NFCI positivo = condiciones más tensas que la media; negativo = condiciones más laxas.")
+        with macro_tab:
+            macro = data[["Inflación interanual", "Desempleo", "Producción industrial interanual"]]
+            st.line_chart(macro, y_label="Porcentaje")
+            st.caption("La brecha de desempleo compara su media reciente con el mínimo del último año.")
+
+        st.caption(
+            "0–24 riesgo bajo · 25–44 moderado · 45–59 elevado · 60–79 alto · 80–100 extremo. "
+            "Fuentes: FRED, Reserva Federal de Chicago, Tesoro de EE. UU. e ICE BofA."
+        )
+    except Exception as error:
+        st.warning(f"No se pudo calcular el riesgo macro y de crédito: {type(error).__name__}: {error}")
 
 
 def draw_fear_greed(period: str) -> None:
@@ -653,6 +727,8 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
         draw_fear_greed(period)
         draw_market_comparison(period)
         draw_gli_intelligence(period)
+    elif section == "Riesgo macro y crédito":
+        draw_macro_credit_risk(period)
     elif section == "Datos y diagnóstico":
         draw_connection_status(market_data, fred_data, net)
         st.caption("Registro local: cache/diagnostics.log")

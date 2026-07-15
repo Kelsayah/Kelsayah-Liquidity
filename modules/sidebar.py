@@ -16,13 +16,14 @@ def draw_sidebar() -> tuple[str, str]:
             "Liquidez global",
             "Política monetaria",
             "Mercados",
+            "Riesgo macro y crédito",
             "Datos y diagnóstico",
         ]
     )
 
     st.sidebar.markdown("---")
 
-    st.sidebar.info("Versión 0.2 · Régimen de mercado")
+    st.sidebar.info("Versión 0.3 · Riesgo macro y crédito")
 
     period = st.sidebar.selectbox(
         "Periodo histórico",

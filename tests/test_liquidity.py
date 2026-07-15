@@ -10,6 +10,7 @@ from sources.global_liquidity import (
 )
 from sources.liquidity import build_us_net_liquidity_history, calculate_us_net_liquidity
 from sources.market_regime import calculate_market_regime, classify_market_regime
+from sources.macro_credit_risk import calculate_macro_credit_risk, classify_macro_risk
 from sources.signals import build_markdown_report, compare_gli_with_asset, interpret_liquidity
 from sources.policy_rates import classify_policy, get_china_lpr_history, rate_change
 from sources.sentiment import (
@@ -20,6 +21,25 @@ from utils.persistence import mark_series
 
 
 class LiquidityTests(unittest.TestCase):
+    def test_macro_credit_risk_builds_history_and_low_risk_reading(self):
+        dates = pd.date_range("2022-01-01", periods=48, freq="MS")
+        growth = pd.Series([100 * (1.002 ** i) for i in range(48)], index=dates)
+        production = pd.Series([100 * (1.003 ** i) for i in range(48)], index=dates)
+        constant = lambda value: pd.Series([value] * 48, index=dates, dtype=float)
+        result = calculate_macro_credit_risk({
+            "Curva 10Y–2Y": constant(1.2),
+            "Spread high yield": constant(2.5),
+            "NFCI": constant(-0.6),
+            "IPC": growth,
+            "Desempleo": pd.Series([4.5 - i * 0.01 for i in range(48)], index=dates),
+            "Producción industrial": production,
+        })
+        self.assertLess(result["score"], 25)
+        self.assertEqual(result["classification"], "Riesgo bajo")
+        self.assertEqual(len(result["details"]), 6)
+        self.assertFalse(result["history"].empty)
+        self.assertEqual(classify_macro_risk(85), "Riesgo extremo")
+
     def test_market_regime_detects_risk_on_environment(self):
         dates = pd.date_range("2022-01-07", periods=210, freq="W-FRI")
         rising = pd.Series(range(100, 310), index=dates, dtype=float)
