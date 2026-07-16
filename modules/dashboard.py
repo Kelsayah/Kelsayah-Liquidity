@@ -1,7 +1,11 @@
 from datetime import date
+import json
+from urllib.parse import quote_plus
 
+import altair as alt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from modules.cards import draw_fred_card, draw_market_card
 from sources.analytics import compare_liquidity_with_asset
@@ -20,6 +24,10 @@ from sources.market_regime import calculate_market_regime
 from sources.macro_credit_risk import calculate_macro_credit_risk
 from sources.section_reports import build_section_report
 from sources.report_pdf import build_report_pdf
+from sources.index_breadth import (
+    EMA_PERIODS, build_index_technical, download_index_histories,
+    download_sp500_breadth,
+)
 from sources.policy_rates import (
     build_policy_comparison, classify_policy, get_china_lpr_history, rate_change,
 )
@@ -29,11 +37,11 @@ from sources.sentiment import (
     get_sp500_fear_greed_history,
 )
 from utils.constants import (
-    BITCOIN, BOJ_BALANCE, BOJ_CALL_RATE, DXY, ECB_BALANCE, ECB_DEPOSIT_RATE,
-    EURUSD, FED_BALANCE, FED_FUNDS_RATE, GOLD, M2, NASDAQ, REVERSE_REPO,
+    BITCOIN, BOJ_BALANCE, BOJ_CALL_RATE, DAX, DXY, ECB_BALANCE, ECB_DEPOSIT_RATE,
+    EURUSD, FED_BALANCE, FED_FUNDS_RATE, GOLD, IBEX35, KOSPI, M2, NASDAQ, REVERSE_REPO,
     SP500, TGA, USDCNY, USDJPY, US10Y, VIX, FINANCIAL_CONDITIONS,
     HIGH_YIELD_SPREAD, US_CPI, US_INDUSTRIAL_PRODUCTION, US_UNEMPLOYMENT,
-    YIELD_CURVE_10Y2Y,
+    YIELD_CURVE_10Y2Y, RSP, SHANGHAI, SPY,
 )
 
 PERIOD_YEARS = {"1 año": 1, "3 años": 3, "5 años": 5, "10 años": 10}
@@ -42,6 +50,22 @@ COMPARISON_ASSETS = {
     "Nasdaq": NASDAQ,
     "Bitcoin": BITCOIN,
     "Oro": GOLD,
+}
+GLOBAL_INDICES = {
+    "S&P 500": SP500,
+    "Nasdaq Composite": NASDAQ,
+    "IBEX 35": IBEX35,
+    "DAX": DAX,
+    "Shanghai Composite": SHANGHAI,
+    "KOSPI": KOSPI,
+}
+TRADINGVIEW_INDICES = {
+    "S&P 500": "SP:SPX",
+    "Nasdaq Composite": "NASDAQ:IXIC",
+    "IBEX 35": "BME:IBC",
+    "DAX": "XETR:DAX",
+    "Shanghai Composite": "SSE:000001",
+    "KOSPI": "KRX:KOSPI",
 }
 
 
@@ -192,6 +216,39 @@ def load_macro_credit_risk(years: int) -> dict:
         "Desempleo": get_fred_history(US_UNEMPLOYMENT, start),
         "Producción industrial": get_fred_history(US_INDUSTRIAL_PRODUCTION, start),
     })
+
+
+@st.cache_data(ttl=3600)
+def load_index_analyses(years: int) -> tuple[dict, dict]:
+    # La EMA 200 mensual necesita aproximadamente 17 años de contexto.
+    start = pd.Timestamp(date.today()) - pd.DateOffset(years=20)
+    analyses, errors = {}, {}
+    try:
+        histories = download_index_histories(GLOBAL_INDICES, start)
+    except Exception as error:
+        return {}, {"Descarga global": f"{type(error).__name__}: {error}"}
+    for name, history in histories.items():
+        try:
+            analyses[name] = build_index_technical(history)
+        except Exception as error:
+            errors[name] = f"{type(error).__name__}: {error}"
+    return analyses, errors
+
+
+@st.cache_data(ttl=21600)
+def load_sp500_breadth_data() -> dict:
+    return download_sp500_breadth()
+
+
+@st.cache_data(ttl=3600)
+def load_equal_weight_comparison(years: int) -> pd.DataFrame:
+    start = pd.Timestamp(date.today()) - pd.DateOffset(years=max(years, 3))
+    histories = download_index_histories({
+        "S&P 500 · SPY": SPY,
+        "S&P 500 equiponderado · RSP": RSP,
+    }, start)
+    comparison = pd.concat(histories, axis=1).dropna()
+    return comparison.divide(comparison.iloc[0]).multiply(100)
 
 
 def draw_header(section: str) -> None:
@@ -367,6 +424,243 @@ def draw_macro_credit_risk(period: str) -> None:
         )
     except Exception as error:
         st.warning(f"No se pudo calcular el riesgo macro y de crédito: {type(error).__name__}: {error}")
+
+
+def _index_breadth_gauge(score: float, label: str) -> None:
+    value = max(0.0, min(100.0, float(score)))
+    angle = -90 + value * 1.8
+    st.markdown(f"""
+    <div style="background:#111827;border:1px solid #293449;border-radius:18px;padding:18px 18px 12px;text-align:center">
+      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Amplitud y confirmación global</div>
+      <div style="position:relative;max-width:520px;height:245px;margin:auto;overflow:hidden">
+        <div style="position:absolute;width:100%;aspect-ratio:1;left:0;top:0;border-radius:50%;background:conic-gradient(from 270deg,#dc2626 0deg 36deg,#f97316 36deg 72deg,#eab308 72deg 108deg,#84cc16 108deg 144deg,#16a34a 144deg 180deg,transparent 180deg)"></div>
+        <div style="position:absolute;width:72%;aspect-ratio:1;left:14%;top:14%;border-radius:50%;background:#111827"></div>
+        <div style="position:absolute;width:5px;height:145px;background:#f8fafc;left:calc(50% - 2px);bottom:0;transform-origin:50% 100%;transform:rotate({angle:.1f}deg);border-radius:4px;box-shadow:0 0 8px #000"></div>
+        <div style="position:absolute;width:20px;height:20px;background:#f8fafc;border-radius:50%;left:calc(50% - 10px);bottom:-10px"></div>
+        <div style="position:absolute;left:0;right:0;bottom:28px;font-size:3rem;font-weight:800;color:#f8fafc">{value:.0f}</div>
+      </div>
+      <div style="font-size:1.15rem;font-weight:800;color:#e5e7eb">{label}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def _ema_chart(frame: pd.DataFrame, years: int, title: str):
+    visible_start = pd.Timestamp(date.today()) - pd.DateOffset(years=years)
+    visible = frame.loc[frame.index >= visible_start].copy()
+    visible.index.name = "Fecha"
+    long = visible.reset_index().melt("Fecha", var_name="Serie", value_name="Valor").dropna()
+    price = alt.Chart(long[long["Serie"] == "Precio"]).mark_line(
+        color="#f8fafc", strokeWidth=2.8,
+    ).encode(
+        x=alt.X("Fecha:T", title=None), y=alt.Y("Valor:Q", title="Nivel"),
+        tooltip=[alt.Tooltip("Fecha:T"), alt.Tooltip("Valor:Q", format=",.2f")],
+    )
+    emas = alt.Chart(long[long["Serie"] != "Precio"]).mark_line(
+        strokeDash=[7, 5], strokeWidth=1.6,
+    ).encode(
+        x=alt.X("Fecha:T", title=None), y=alt.Y("Valor:Q", title="Nivel"),
+        color=alt.Color(
+            "Serie:N",
+            scale=alt.Scale(
+                domain=[f"EMA {period}" for period in EMA_PERIODS],
+                range=["#22d3ee", "#a78bfa", "#f59e0b", "#fb7185", "#22c55e"],
+            ),
+            legend=alt.Legend(orient="bottom", columns=5),
+        ),
+        tooltip=["Serie:N", alt.Tooltip("Fecha:T"), alt.Tooltip("Valor:Q", format=",.2f")],
+    )
+    return (price + emas).properties(height=430, title=title).interactive()
+
+
+def _draw_tradingview_index(name: str) -> None:
+    symbol = TRADINGVIEW_INDICES[name]
+    configuration = json.dumps({
+        "autosize": True,
+        "symbol": symbol,
+        "interval": "D",
+        "timezone": "Europe/Madrid",
+        "theme": "dark",
+        "style": "1",
+        "locale": "es",
+        "withdateranges": True,
+        "hide_side_toolbar": False,
+        "allow_symbol_change": True,
+        "save_image": False,
+        "studies": [],
+        "show_popup_button": True,
+        "popup_width": "1200",
+        "popup_height": "700",
+        "support_host": "https://www.tradingview.com",
+    })
+    widget = f"""
+    <div class="tradingview-widget-container" style="height:620px;width:100%">
+      <div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {configuration}
+      </script>
+    </div>
+    """
+    components.html(widget, height=640, scrolling=False)
+    st.link_button(
+        f"Abrir {name} en TradingView",
+        f"https://www.tradingview.com/chart/?symbol={quote_plus(symbol)}",
+        use_container_width=True,
+    )
+
+
+def _draw_indices_report(context: dict) -> None:
+    st.markdown('<div class="section-title">Informe automático y escenarios</div>', unsafe_allow_html=True)
+    report = build_section_report("Índices y amplitud", context)
+    st.info(report["situation"])
+    with st.expander("Señales que sustentan el diagnóstico", expanded=True):
+        for signal in report["signals"]:
+            st.write(f"• {signal}")
+    scenarios = pd.DataFrame(report["scenarios"])
+    scenarios["Probabilidad"] = scenarios["Probabilidad"].map(lambda value: f"{value}%")
+    st.dataframe(scenarios, hide_index=True, use_container_width=True)
+    st.caption("Estimaciones heurísticas derivadas de tendencia, amplitud y confirmación; no son recomendaciones de inversión.")
+    st.download_button(
+        "Descargar informe PDF",
+        data=build_report_pdf("Índices y amplitud", report),
+        file_name=f"informe-indices-amplitud-{date.today().isoformat()}.pdf",
+        mime="application/pdf", use_container_width=True,
+        key="download_report_pdf_indices_amplitud",
+    )
+
+
+def draw_indices_breadth(period: str) -> None:
+    st.markdown('<div class="section-title">Índices globales · tendencia y amplitud</div>', unsafe_allow_html=True)
+    years = PERIOD_YEARS[period]
+    analyses, errors = load_index_analyses(years)
+    if not analyses:
+        st.warning("No se pudo cargar ninguno de los índices globales.")
+        return
+
+    rows = []
+    for name, result in analyses.items():
+        latest = result["daily"]["Precio"].iloc[-1]
+        signal = "Alcista" if result["score"] >= 70 else "Neutral" if result["score"] >= 40 else "Bajista"
+        rows.append({
+            "Índice": name, "Último": f"{latest:,.2f}",
+            "Diario": result["daily_score"], "Semanal": result["weekly_score"],
+            "Mensual": result["monthly_score"], "Confirmación": result["score"],
+            "Tendencia": signal,
+        })
+    summary = pd.DataFrame(rows)
+    index_score = float(summary["Confirmación"].mean())
+
+    load_full_breadth = st.toggle(
+        "Calcular amplitud completa de las 500 empresas del S&P 500",
+        value=False,
+        help="La primera descarga puede tardar entre 45 y 90 segundos; después se conserva seis horas en caché.",
+        key="load_full_sp500_breadth",
+    )
+    breadth, breadth_error = None, "Activa el cálculo completo para ver los componentes internos."
+    if load_full_breadth:
+        try:
+            with st.spinner("Calculando amplitud de los componentes del S&P 500..."):
+                breadth = load_sp500_breadth_data()
+        except Exception as error:
+            breadth_error = f"{type(error).__name__}: {error}"
+
+    equal_weight, equal_error = None, None
+    try:
+        equal_weight = load_equal_weight_comparison(years)
+    except Exception as error:
+        equal_error = f"{type(error).__name__}: {error}"
+
+    breadth_score = index_score
+    breadth_values = {"Sobre EMA 20": index_score, "Sobre EMA 50": index_score, "Sobre EMA 200": index_score}
+    new_highs = new_lows = 0
+    if breadth:
+        breadth_values = breadth["breadth"].iloc[-1].to_dict()
+        breadth_score = float(pd.Series(breadth_values).mean())
+        new_highs = int(breadth["highs_lows"]["Nuevos máximos"].iloc[-1])
+        new_lows = int(breadth["highs_lows"]["Nuevos mínimos"].iloc[-1])
+
+    rsp_relative = 100.0
+    equal_score = 50.0
+    if equal_weight is not None and not equal_weight.empty:
+        rsp_relative = float(equal_weight.iloc[-1, 1] / equal_weight.iloc[-1, 0] * 100)
+        equal_score = 70.0 if rsp_relative >= 100 else 35.0
+    global_score = index_score * 0.50 + breadth_score * 0.35 + equal_score * 0.15
+    label = "Amplitud fuerte" if global_score >= 70 else "Amplitud saludable" if global_score >= 55 else "Amplitud neutral" if global_score >= 40 else "Amplitud débil"
+    _index_breadth_gauge(global_score, label)
+
+    st.markdown("#### Confirmación entre índices y temporalidades")
+    st.dataframe(summary, hide_index=True, use_container_width=True)
+
+    selected = st.selectbox("Índice para analizar", list(analyses), key="selected_global_index")
+    result = analyses[selected]
+    daily_tab, weekly_tab, monthly_tab = st.tabs(["Diario", "Semanal", "Mensual"])
+    with daily_tab:
+        st.altair_chart(_ema_chart(result["daily"], years, f"{selected} · diario"), use_container_width=True)
+    with weekly_tab:
+        st.altair_chart(_ema_chart(result["weekly"], years, f"{selected} · semanal"), use_container_width=True)
+    with monthly_tab:
+        st.altair_chart(_ema_chart(result["monthly"], years, f"{selected} · mensual"), use_container_width=True)
+    st.caption("Precio en línea continua. EMA 10, 20, 34, 50 y 200 en líneas discontinuas; todas calculadas sobre su propia temporalidad.")
+
+    with st.expander("Gráfico oficial de TradingView", expanded=False):
+        _draw_tradingview_index(selected)
+
+    st.markdown("#### Divergencias detectadas")
+    divergences = []
+    for name, item in analyses.items():
+        time_scores = [item["daily_score"], item["weekly_score"], item["monthly_score"]]
+        if max(time_scores) - min(time_scores) >= 40:
+            divergences.append(f"{name}: las temporalidades no confirman la misma tendencia ({item['daily_score']}/{item['weekly_score']}/{item['monthly_score']}).")
+        if item["score"] <= index_score - 25:
+            divergences.append(f"{name}: debilidad relativa frente al conjunto global.")
+    if rsp_relative < 98:
+        divergences.append("RSP rinde claramente peor que SPY: el avance depende más de las compañías de mayor capitalización.")
+    if not divergences:
+        st.success("No se observan divergencias relevantes entre índices, temporalidades o ponderaciones.")
+    else:
+        for message in divergences:
+            st.warning(message)
+
+    st.markdown("#### Amplitud interna del S&P 500")
+    if breadth:
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Sobre EMA 20", f'{breadth_values["Sobre EMA 20"]:.1f}%')
+        b2.metric("Sobre EMA 50", f'{breadth_values["Sobre EMA 50"]:.1f}%')
+        b3.metric("Sobre EMA 200", f'{breadth_values["Sobre EMA 200"]:.1f}%')
+        b4.metric("Cobertura", f'{breadth["coverage"]} empresas')
+        st.line_chart(breadth["breadth"], y_label="Porcentaje")
+        ad_col, hl_col = st.columns(2)
+        with ad_col:
+            st.markdown("##### Línea avance/descenso")
+            st.line_chart(breadth["advance_decline"])
+        with hl_col:
+            st.markdown("##### Nuevos máximos y mínimos")
+            st.line_chart(breadth["highs_lows"])
+            st.caption(f"Última lectura: {new_highs} máximos y {new_lows} mínimos de 52 semanas.")
+    else:
+        st.warning(f"Amplitud por componentes no disponible: {breadth_error}")
+
+    st.markdown("#### S&P 500 tradicional frente al equiponderado")
+    if equal_weight is not None:
+        st.line_chart(equal_weight, y_label="Base 100")
+        st.caption(f"RSP relativo a SPY desde el inicio del periodo: {rsp_relative:.1f}. Por debajo de 100 indica liderazgo más concentrado.")
+    else:
+        st.warning(f"Comparación SPY/RSP no disponible: {equal_error}")
+
+    for name, error in errors.items():
+        st.warning(f"{name}: {error}")
+
+    _draw_indices_report({
+        "global_breadth_score": global_score,
+        "breadth_label": label,
+        "index_score": index_score,
+        "breadth_20": float(breadth_values["Sobre EMA 20"]),
+        "breadth_50": float(breadth_values["Sobre EMA 50"]),
+        "breadth_200": float(breadth_values["Sobre EMA 200"]),
+        "rsp_relative": rsp_relative,
+        "new_highs": new_highs,
+        "new_lows": new_lows,
+        "divergence_count": len(divergences),
+    })
 
 
 @st.cache_data(ttl=1800)
@@ -774,14 +1068,16 @@ def draw_connection_status(market_data: dict, fred_data: dict, net: dict) -> Non
 
 def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
     draw_header(section)
-    market_data = load_market_data()
-    fred_data = load_fred_data()
+    market_data = load_market_data() if section in {"Resumen", "Mercados", "Datos y diagnóstico"} else {}
+    fred_data = load_fred_data() if section in {"Resumen", "Liquidez global", "Datos y diagnóstico"} else {}
     if section == "Resumen":
         net = draw_summary(market_data, fred_data)
-    else:
+    elif fred_data:
         net = calculate_us_net_liquidity(
             fred_data["Balance FED"], fred_data["TGA"], fred_data["Reverse Repo"]
         )
+    else:
+        net = {"error": None}
 
     if section == "Resumen":
         draw_global_liquidity(period)
@@ -802,6 +1098,8 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
         draw_gli_intelligence(period)
     elif section == "Riesgo macro y crédito":
         draw_macro_credit_risk(period)
+    elif section == "Índices y amplitud":
+        draw_indices_breadth(period)
     elif section == "Datos y diagnóstico":
         draw_connection_status(market_data, fred_data, net)
         st.caption("Registro local: cache/diagnostics.log")
@@ -816,5 +1114,3 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
         "US Net Liquidity = Balance FED − TGA − Reverse Repo. "
         "Aproximación orientativa; no es una medida oficial de la Reserva Federal."
     )
-    if section != "Datos y diagnóstico":
-        draw_connection_status(market_data, fred_data, net)

@@ -2,6 +2,10 @@ import yfinance as yf
 import pandas as pd
 import time
 from utils.persistence import load_series, log_data_error, mark_series, save_series
+from utils.yfinance_cache import configure_yfinance_cache
+
+
+configure_yfinance_cache()
 
 
 def get_market_data(symbol: str) -> dict:

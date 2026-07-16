@@ -7,7 +7,7 @@ def draw_sidebar() -> str:
 
     st.sidebar.markdown("---")
 
-    st.sidebar.info("Versión 0.5 · Páginas e informes PDF")
+    st.sidebar.info("Versión 0.6 · Índices y amplitud")
 
     period = st.sidebar.selectbox(
         "Periodo histórico",

@@ -21,11 +21,11 @@ def _market_scenarios(score: float) -> list[dict]:
 
 
 def build_section_report(section: str, context: dict) -> dict:
-    market_score = float(context["market_score"])
-    macro_score = float(context["macro_score"])
-    gli_change = float(context["gli_change4"])
-    inflation = float(context["inflation"])
-    fed_change = float(context["fed_rate_change"])
+    market_score = float(context.get("market_score", 50))
+    macro_score = float(context.get("macro_score", 50))
+    gli_change = float(context.get("gli_change4", 0))
+    inflation = float(context.get("inflation", 2.5))
+    fed_change = float(context.get("fed_rate_change", 0))
 
     if section == "Resumen":
         combined = market_score * 0.60 + (100 - macro_score) * 0.40
@@ -106,6 +106,24 @@ def build_section_report(section: str, context: dict) -> dict:
             ("Aterrizaje suave", max(8, 100 - macro_score), "Crédito estable y desaceleración sin deterioro fuerte del empleo."),
             ("Desaceleración", max(22, 100 - abs(macro_score - 50) * 1.4), "Crecimiento más débil con tensión financiera contenida."),
             ("Estrés / recesión", max(8, macro_score), "Se amplían spreads y empeoran empleo y condiciones financieras."),
+        ])
+    elif section == "Índices y amplitud":
+        breadth_score = float(context["global_breadth_score"])
+        situation = (
+            f"La amplitud y confirmación global se clasifica como {context['breadth_label'].lower()} "
+            f"con {breadth_score:.0f}/100. El {context['breadth_200']:.1f}% de los componentes "
+            "analizados del S&P 500 cotiza sobre su EMA 200."
+        )
+        signals = [
+            f"Confirmación media de los seis índices: {context['index_score']:.0f}/100.",
+            f"S&P 500 sobre EMA 20/50/200: {context['breadth_20']:.1f}% / {context['breadth_50']:.1f}% / {context['breadth_200']:.1f}%.",
+            f"RSP relativo a SPY: {context['rsp_relative']:.1f} (100 = mismo rendimiento desde el inicio).",
+            f"Nuevos máximos/mínimos: {context['new_highs']} / {context['new_lows']}; divergencias detectadas: {context['divergence_count']}.",
+        ]
+        scenarios = _probabilities([
+            ("Avance amplio y confirmado", max(8, breadth_score), "Más índices y componentes confirman la tendencia en diario, semanal y mensual."),
+            ("Mercado mixto / rotación", max(22, 100 - abs(breadth_score - 50) * 1.5), "El liderazgo rota entre regiones, tamaños y temporalidades."),
+            ("Liderazgo estrecho / corrección", max(8, 100 - breadth_score), "La subida depende de pocos índices o compañías y aumenta la fragilidad."),
         ])
     else:
         raise ValueError(f"No existe informe para la sección {section}")

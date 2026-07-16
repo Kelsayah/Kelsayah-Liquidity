@@ -61,6 +61,10 @@ def page_macro_risk() -> None:
     _render_section("Riesgo macro y crédito")
 
 
+def page_indices() -> None:
+    _render_section("Índices y amplitud")
+
+
 def page_diagnostics() -> None:
     _render_section("Datos y diagnóstico")
 
@@ -71,6 +75,7 @@ navigation = st.navigation([
     st.Page(page_policy, title="Política monetaria", icon="🏦", url_path="politica-monetaria"),
     st.Page(page_markets, title="Mercados", icon="📈", url_path="mercados"),
     st.Page(page_macro_risk, title="Riesgo macro y crédito", icon="⚠️", url_path="riesgo-macro-credito"),
+    st.Page(page_indices, title="Índices y amplitud", icon="🌐", url_path="indices-amplitud"),
     st.Page(page_diagnostics, title="Datos y diagnóstico", icon="🔧", url_path="datos-diagnostico"),
 ], expanded=True)
 navigation.run()

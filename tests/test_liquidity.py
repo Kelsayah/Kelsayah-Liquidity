@@ -13,6 +13,7 @@ from sources.market_regime import calculate_market_regime, classify_market_regim
 from sources.macro_credit_risk import calculate_macro_credit_risk, classify_macro_risk
 from sources.section_reports import build_section_report
 from sources.report_pdf import build_report_pdf
+from sources.index_breadth import build_index_technical, calculate_sp500_breadth
 from sources.signals import build_markdown_report, compare_gli_with_asset, interpret_liquidity
 from sources.policy_rates import classify_policy, get_china_lpr_history, rate_change
 from sources.sentiment import (
@@ -23,6 +24,28 @@ from utils.persistence import mark_series
 
 
 class LiquidityTests(unittest.TestCase):
+    def test_index_technical_includes_daily_weekly_monthly_and_requested_emas(self):
+        dates = pd.date_range("2006-01-02", periods=5200, freq="B")
+        technical = build_index_technical(pd.Series(range(100, 5300), index=dates, dtype=float))
+        expected = ["Precio", "EMA 10", "EMA 20", "EMA 34", "EMA 50", "EMA 200"]
+        self.assertEqual(list(technical["daily"].columns), expected)
+        self.assertEqual(list(technical["weekly"].columns), expected)
+        self.assertEqual(list(technical["monthly"].columns), expected)
+        self.assertEqual(technical["score"], 100)
+
+    def test_sp500_breadth_calculates_emas_advance_decline_and_extremes(self):
+        dates = pd.date_range("2025-01-02", periods=300, freq="B")
+        close = pd.DataFrame({
+            f"C{i}": pd.Series(range(100 + i, 400 + i), index=dates, dtype=float)
+            for i in range(20)
+        })
+        result = calculate_sp500_breadth(close)
+        self.assertEqual(result["coverage"], 20)
+        self.assertEqual(list(result["breadth"].columns), ["Sobre EMA 20", "Sobre EMA 50", "Sobre EMA 200"])
+        self.assertGreater(result["breadth"].iloc[-1, -1], 90)
+        self.assertFalse(result["advance_decline"].empty)
+        self.assertIn("Nuevos máximos", result["highs_lows"])
+
     def test_section_reports_generate_three_scenarios_totalling_100(self):
         context = {
             "market_score": 70, "market_regime": "Risk-on moderado",
@@ -45,6 +68,15 @@ class LiquidityTests(unittest.TestCase):
             pdf = build_report_pdf(section, report)
             self.assertTrue(pdf.startswith(b"%PDF"))
             self.assertGreater(len(pdf), 3000)
+
+        indices_report = build_section_report("Índices y amplitud", {
+            "global_breadth_score": 68, "breadth_label": "Amplitud saludable",
+            "index_score": 72, "breadth_20": 65, "breadth_50": 61,
+            "breadth_200": 58, "rsp_relative": 98, "new_highs": 21,
+            "new_lows": 4, "divergence_count": 2,
+        })
+        self.assertEqual(sum(row["Probabilidad"] for row in indices_report["scenarios"]), 100)
+        self.assertTrue(build_report_pdf("Índices y amplitud", indices_report).startswith(b"%PDF"))
 
     def test_macro_credit_risk_builds_history_and_low_risk_reading(self):
         dates = pd.date_range("2022-01-01", periods=48, freq="MS")
