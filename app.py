@@ -65,6 +65,10 @@ def page_indices() -> None:
     _render_section("Índices y amplitud")
 
 
+def page_us_economy() -> None:
+    _render_section("Economía EEUU")
+
+
 def page_diagnostics() -> None:
     _render_section("Datos y diagnóstico")
 
@@ -76,6 +80,8 @@ navigation = st.navigation([
     st.Page(page_markets, title="Mercados", icon="📈", url_path="mercados"),
     st.Page(page_macro_risk, title="Riesgo macro y crédito", icon="⚠️", url_path="riesgo-macro-credito"),
     st.Page(page_indices, title="Índices y amplitud", icon="🌐", url_path="indices-amplitud"),
+    st.Page(page_us_economy, title="Economía EEUU", icon="🇺🇸", url_path="economia-eeuu"),
     st.Page(page_diagnostics, title="Datos y diagnóstico", icon="🔧", url_path="datos-diagnostico"),
 ], expanded=True)
 navigation.run()
+
