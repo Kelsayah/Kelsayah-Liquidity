@@ -7,7 +7,7 @@ def draw_sidebar() -> str:
 
     st.sidebar.markdown("---")
 
-    st.sidebar.info("Versión 0.6 · Índices y amplitud")
+    st.sidebar.info("Versión 0.7 · Economía EEUU")
 
     period = st.sidebar.selectbox(
         "Periodo histórico",
@@ -19,3 +19,4 @@ def draw_sidebar() -> str:
         st.cache_data.clear()
         st.rerun()
     return period
+
