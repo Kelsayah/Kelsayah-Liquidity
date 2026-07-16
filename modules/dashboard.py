@@ -1,6 +1,5 @@
 Exit code: 0
-Wall time: 0.5 seconds
-Total output lines: 1197
+Wall time: 0.4 seconds
 Output:
 from datetime import date
 import json
@@ -152,6 +151,10 @@ def load_global_liquidity(years: int) -> pd.DataFrame:
     }
     for provider, status in statuses.items():
         result[f"_{provider} status"] = status
+
+Exit code: 0
+Wall time: 0.5 seconds
+Output:
     # Columnas internas constantes: sobreviven a la serializaciÃ³n de la cachÃ©.
     result["_Europe source value"] = float(ecb.iloc[-1])
     result["_Europe source date"] = ecb.index[-1]
@@ -302,6 +305,10 @@ def draw_fed_cards(fred_data: dict) -> None:
 
 def draw_market_cards(market_data: dict) -> None:
     st.markdown('<div class="section-title">Mercados</div>', unsafe_allow_html=True)
+
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
     cols = st.columns(4)
     specs = [("S&P 500", "", 2), ("Nasdaq", "", 2),
              ("Bitcoin", " USD", 0), ("Oro", " USD", 2)]
@@ -418,7 +425,381 @@ def draw_macro_credit_risk(period: str) -> None:
             st.metric("Chicago Fed NFCI", f'{data["NFCI"].iloc[-1]:.2f}')
             st.line_chart(data[["NFCI"]], y_label="Ãndice")
             st.caption("NFCI positivo = condiciones mÃ¡s tensas que la media; negativo = condiciones mÃ¡s laxas.")
-        with macro_ta…4511 tokens truncated… Repo"]])
+        with macro_tab:
+            macro = data[["InflaciÃ³n interanual", "Desempleo", "ProducciÃ³n industrial interanual"]]
+            st.line_chart(macro, y_label="Porcentaje")
+            st.caption("La brecha de desempleo compara su media reciente con el mÃ­nimo del Ãºltimo aÃ±o.")
+
+        st.caption(
+            "0â€“24 riesgo bajo Â· 25â€“44 moderado Â· 45â€“59 elevado Â· 60â€“79 alto Â· 80â€“100 extremo. "
+            "Fuentes: FRED, Reserva Federal de Chicago, Tesoro de EE. UU. e ICE BofA."
+        )
+    except Exception as error:
+        st.warning(f"No se pudo calcular el riesgo macro y de crÃ©dito: {type(error).__name__}: {error}")
+
+
+def _index_breadth_gauge(score: float, label: str) -> None:
+    value = max(0.0, min(100.0, float(score)))
+    angle = -90 + value * 1.8
+    st.markdown(f"""
+    <div style="background:#111827;border:1px solid #293449;border-radius:18px;padding:18px 18px 12px;text-align:center">
+      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Amplitud y confirmaciÃ³n global</div>
+      <div style="position:relative;max-width:520px;height:245px;margin:auto;overflow:hidden">
+        <div style="position:absolute;width:100%;aspect-ratio:1;left:0;top:0;border-radius:50%;background:conic-gradient(from 270deg,#dc2626 0deg 36deg,#f97316 36deg 72deg,#eab308 72deg 108deg,#84cc16 108deg 144deg,#16a34a 144deg 180deg,transparent 180deg)"></div>
+        <div style="position:absolute;width:72%;aspect-ratio:1;left:14%;top:14%;border-radius:50%;background:#111827"></div>
+        <div style="position:absolute;width:5px;height:145px;background:#f8fafc;left:calc(50% - 2px);bottom:0;transform-origin:50% 100%;transform:rotate({angle:.1f}deg);border-radius:4px;box-shadow:0 0 8px #000"></div>
+        <div style="position:absolute;width:20px;height:20px;background:#f8fafc;border-radius:50%;left:calc(50% - 10px);bottom:-10px"></div>
+        <div style="position:absolute;left:0;right:0;bottom:28px;font-size:3rem;font-weight:800;color:#f8fafc">{value:.0f}</div>
+      </div>
+      <div style="font-size:1.15rem;font-weight:800;color:#e5e7eb">{label}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def _ema_chart(frame: pd.DataFrame, years: int, title: str):
+    visible_start = pd.Timestamp(date.today()) - pd.DateOffset(years=years)
+    visible = frame.loc[frame.index >= visible_start].copy()
+
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
+    visible.index.name = "Fecha"
+    long = visible.reset_index().melt("Fecha", var_name="Serie", value_name="Valor").dropna()
+    price = alt.Chart(long[long["Serie"] == "Precio"]).mark_line(
+        color="#f8fafc", strokeWidth=2.8,
+    ).encode(
+        x=alt.X("Fecha:T", title=None), y=alt.Y("Valor:Q", title="Nivel"),
+        tooltip=[alt.Tooltip("Fecha:T"), alt.Tooltip("Valor:Q", format=",.2f")],
+    )
+    emas = alt.Chart(long[long["Serie"] != "Precio"]).mark_line(
+        strokeDash=[7, 5], strokeWidth=1.6,
+    ).encode(
+        x=alt.X("Fecha:T", title=None), y=alt.Y("Valor:Q", title="Nivel"),
+        color=alt.Color(
+            "Serie:N",
+            scale=alt.Scale(
+                domain=[f"EMA {period}" for period in EMA_PERIODS],
+                range=["#22d3ee", "#a78bfa", "#f59e0b", "#fb7185", "#22c55e"],
+            ),
+            legend=alt.Legend(orient="bottom", columns=5),
+        ),
+        tooltip=["Serie:N", alt.Tooltip("Fecha:T"), alt.Tooltip("Valor:Q", format=",.2f")],
+    )
+    return (price + emas).properties(height=430, title=title).interactive()
+
+
+def _draw_tradingview_index(name: str) -> None:
+    symbol = TRADINGVIEW_INDICES[name]
+    configuration = json.dumps({
+        "autosize": True,
+        "symbol": symbol,
+        "interval": "D",
+        "timezone": "Europe/Madrid",
+        "theme": "dark",
+        "style": "1",
+        "locale": "es",
+        "withdateranges": True,
+        "hide_side_toolbar": False,
+        "allow_symbol_change": True,
+        "save_image": False,
+        "studies": [],
+        "show_popup_button": True,
+        "popup_width": "1200",
+        "popup_height": "700",
+        "support_host": "https://www.tradingview.com",
+    })
+    widget = f"""
+    <div class="tradingview-widget-container" style="height:620px;width:100%">
+      <div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {configuration}
+      </script>
+    </div>
+    """
+    components.html(widget, height=640, scrolling=False)
+    st.link_button(
+        f"Abrir {name} en TradingView",
+        f"https://www.tradingview.com/chart/?symbol={quote_plus(symbol)}",
+        use_container_width=True,
+    )
+
+
+def _draw_indices_report(context: dict) -> None:
+    st.markdown('<div class="section-title">Informe automÃ¡tico y escenarios</div>', unsafe_allow_html=True)
+    report = build_section_report("Ãndices y amplitud", context)
+    st.info(report["situation"])
+    with st.expander("SeÃ±ales que sustentan el diagnÃ³stico", expanded=True):
+        for signal in report["signals"]:
+            st.write(f"â€¢ {signal}")
+    scenarios = pd.DataFrame(report["scenarios"])
+    scenarios["Probabilidad"] = scenarios["Probabilidad"].map(lambda value: f"{value}%")
+    st.dataframe(scenarios, hide_index=True, use_container_width=True)
+    st.caption("Estimaciones heurÃ­sticas derivadas de tendencia, amplitud y confirmaciÃ³n; no son recomendaciones de inversiÃ³n.")
+    st.download_button(
+        "Descargar informe PDF",
+        data=build_report_pdf("Ãndices y amplitud", report),
+        file_name=f"informe-indices-amplitud-{date.today().isoformat()}.pdf",
+        mime="application/pdf", use_container_width=True,
+        key="download_report_pdf_indices_amplitud",
+    )
+
+
+def draw_indices_breadth(period: str) -> None:
+    st.markdown('<div class="section-title">Ãndices globales Â· tendencia y amplitud</div>', unsafe_allow_html=True)
+    years = PERIOD_YEARS[period]
+    analyses, errors = load_index_analyses(years)
+    if not analyses:
+        st.warning("No se pudo cargar ninguno de los Ã­ndices globales.")
+        return
+
+    rows = []
+    for name, result in analyses.items():
+        latest = result["daily"]["Precio"].iloc[-1]
+        signal = "Alcista" if result["score"] >= 70 else "Neutral" if result["score"] >= 40 else "Bajista"
+        rows.append({
+            "Ãndice": name, "Ãšltimo": f"{latest:,.2f}",
+            "Diario": result["daily_score"], "Semanal": result["weekly_score"],
+            "Mensual": result["monthly_score"], "ConfirmaciÃ³n": result["score"],
+            "Tendencia": signal,
+        })
+    summary = pd.DataFrame(rows)
+    index_score = float(summary["ConfirmaciÃ³n"].mean())
+
+    load_full_breadth = st.toggle(
+        "Calcular amplitud completa de las 500 empresas del S&P 500",
+        value=False,
+        help="La primera descarga puede tardar entre 45 y 90 segundos; despuÃ©s se conserva seis horas en cachÃ©.",
+        key="load_full_sp500_breadth",
+    )
+    breadth, breadth_error = None, "Activa el cÃ¡lculo completo para ver los componentes internos."
+    if load_full_breadth:
+        try:
+            with st.spinner("Calculando amplitud de los componentes del S&P 500..."):
+                breadth = load_sp500_breadth_data()
+        except Exception as error:
+            breadth_error = f"{type(error).__name__}: {error}"
+
+    equal_weight, equal_error = None, None
+    try:
+        equal_weight = load_equal_weight_comparison(years)
+    except Exception as error:
+        equal_error = f"{type(error).__name__}: {error}"
+
+    breadth_score = index_score
+    breadth_values = {"Sobre EMA 20": index_score, "Sobre EMA 50": index_score, "Sobre EMA 200": index_score}
+    new_highs = new_lows = 0
+    if breadth:
+        breadth_values = breadth["breadth"].iloc[-1].to_dict()
+        breadth_score = float(pd.Series(breadth_values).mean())
+        new_highs = int(breadth["highs_lows"]["Nuevos mÃ¡ximos"].iloc[-1])
+        new_lows = int(breadth["highs_lows"]["Nuevos mÃ­nimos"].iloc[-1])
+
+    rsp_relative = 100.0
+    equal_score = 50.0
+    if equal_weight is not None and not equal_weight.empty:
+        rsp_relative = float(equal_weight.iloc[-1, 1] / equal_weight.iloc[-1, 0] * 100)
+        equal_score = 70.0 if rsp_relative >= 100 else 35.0
+    global_score = index_score * 0.50 + breadth_score * 0.35 + equal_score * 0.15
+    label = "Amplitud fuerte" if global_score >= 70 else "Amplitud saludable" if global_score >= 55 else "Amplitud neutral" if global_score >= 40 else "Amplitud dÃ©bil"
+    _index_breadth_gauge(global_score, label)
+
+    st.markdown("#### ConfirmaciÃ³n entre Ã­ndices y temporalidades")
+    st.dataframe(summary, hide_index=True, use_container_width=True)
+
+    selected = st.selectbox("Ãndice para analizar", list(analyses), key="selected_global_index")
+    result = analyses[selected]
+    daily_tab, weekly_tab, monthly_tab = st.tabs(["Diario", "Semanal", "Mensual"])
+    with daily_tab:
+        st.altair_chart(_ema_chart(result["daily"], years, f"{selected} Â· diario"), use_container_width=True)
+    with weekly_tab:
+        st.altair_chart(_ema_chart(result["weekly"], years, f"{selected} Â· semanal"), use_container_width=True)
+
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
+    with monthly_tab:
+        st.altair_chart(_ema_chart(result["monthly"], years, f"{selected} Â· mensual"), use_container_width=True)
+    st.caption("Precio en lÃ­nea continua. EMA 10, 20, 34, 50 y 200 en lÃ­neas discontinuas; todas calculadas sobre su propia temporalidad.")
+
+    with st.expander("GrÃ¡fico oficial de TradingView", expanded=False):
+        _draw_tradingview_index(selected)
+
+    st.markdown("#### Divergencias detectadas")
+    divergences = []
+    for name, item in analyses.items():
+        time_scores = [item["daily_score"], item["weekly_score"], item["monthly_score"]]
+        if max(time_scores) - min(time_scores) >= 40:
+            divergences.append(f"{name}: las temporalidades no confirman la misma tendencia ({item['daily_score']}/{item['weekly_score']}/{item['monthly_score']}).")
+        if item["score"] <= index_score - 25:
+            divergences.append(f"{name}: debilidad relativa frente al conjunto global.")
+    if rsp_relative < 98:
+        divergences.append("RSP rinde claramente peor que SPY: el avance depende mÃ¡s de las compaÃ±Ã­as de mayor capitalizaciÃ³n.")
+    if not divergences:
+        st.success("No se observan divergencias relevantes entre Ã­ndices, temporalidades o ponderaciones.")
+    else:
+        for message in divergences:
+            st.warning(message)
+
+    st.markdown("#### Amplitud interna del S&P 500")
+    if breadth:
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Sobre EMA 20", f'{breadth_values["Sobre EMA 20"]:.1f}%')
+        b2.metric("Sobre EMA 50", f'{breadth_values["Sobre EMA 50"]:.1f}%')
+        b3.metric("Sobre EMA 200", f'{breadth_values["Sobre EMA 200"]:.1f}%')
+        b4.metric("Cobertura", f'{breadth["coverage"]} empresas')
+        st.line_chart(breadth["breadth"], y_label="Porcentaje")
+        ad_col, hl_col = st.columns(2)
+        with ad_col:
+            st.markdown("##### LÃ­nea avance/descenso")
+            st.line_chart(breadth["advance_decline"])
+        with hl_col:
+            st.markdown("##### Nuevos mÃ¡ximos y mÃ­nimos")
+            st.line_chart(breadth["highs_lows"])
+            st.caption(f"Ãšltima lectura: {new_highs} mÃ¡ximos y {new_lows} mÃ­nimos de 52 semanas.")
+    else:
+        st.warning(f"Amplitud por componentes no disponible: {breadth_error}")
+
+    st.markdown("#### S&P 500 tradicional frente al equiponderado")
+    if equal_weight is not None:
+        st.line_chart(equal_weight, y_label="Base 100")
+        st.caption(f"RSP relativo a SPY desde el inicio del periodo: {rsp_relative:.1f}. Por debajo de 100 indica liderazgo mÃ¡s concentrado.")
+    else:
+        st.warning(f"ComparaciÃ³n SPY/RSP no disponible: {equal_error}")
+
+    for name, error in errors.items():
+        st.warning(f"{name}: {error}")
+
+    _draw_indices_report({
+        "global_breadth_score": global_score,
+        "breadth_label": label,
+        "index_score": index_score,
+        "breadth_20": float(breadth_values["Sobre EMA 20"]),
+        "breadth_50": float(breadth_values["Sobre EMA 50"]),
+        "breadth_200": float(breadth_values["Sobre EMA 200"]),
+        "rsp_relative": rsp_relative,
+        "new_highs": new_highs,
+        "new_lows": new_lows,
+        "divergence_count": len(divergences),
+    })
+
+
+@st.cache_data(ttl=1800)
+def load_report_context(years: int) -> dict:
+    start = pd.Timestamp(date.today()) - pd.DateOffset(years=max(years, 3))
+    gli = load_global_liquidity(years)["GLI"].dropna()
+    sp500 = load_asset_history(years, "S&P 500").dropna()
+    vix = get_market_history(VIX, start).dropna()
+    dxy = get_market_history(DXY, start).dropna()
+    fed_rate = load_fed_rate_history(years).dropna()
+    sentiment = load_sp500_fear_greed(years).dropna()
+    market = calculate_market_regime(gli, sp500, vix, dxy, fed_rate, sentiment)
+    macro = load_macro_credit_risk(years)
+    macro_data = macro["data"].iloc[-1]
+    trends = build_gli_trends(gli)
+    sp500_weekly = sp500.resample("W-FRI").last().ffill().dropna()
+    dxy_weekly = dxy.resample("W-FRI").last().ffill().dropna()
+    fed_position = max(0, len(fed_rate) - 14)
+    return {
+        "market_score": market["score"],
+        "market_regime": market["regime"],
+        "macro_score": macro["score"],
+        "macro_regime": macro["classification"],
+        "gli_latest": float(gli.iloc[-1]),
+        "gli_change4": float(gli.pct_change(4).iloc[-1] * 100),
+        "gli_above_ema200": bool(trends["GLI"].iloc[-1] >= trends["EMA 200"].iloc[-1]),
+        "sp500_above_ema200": bool(sp500_weekly.iloc[-1] >= sp500_weekly.ewm(span=200, adjust=False).mean().iloc[-1]),
+        "vix": float(vix.iloc[-1]),
+        "dxy_change12": float(dxy_weekly.pct_change(12).iloc[-1] * 100),
+        "fed_rate": float(fed_rate.iloc[-1]),
+        "fed_rate_change": float(fed_rate.iloc[-1] - fed_rate.iloc[fed_position]),
+        "sentiment": float(sentiment.iloc[-1]),
+        "inflation": float(macro_data["InflaciÃ³n interanual"]),
+        "unemployment": float(macro_data["Desempleo"]),
+        "hy_spread": float(macro_data["Spread high yield"]),
+        "nfci": float(macro_data["NFCI"]),
+        "yield_curve": float(macro_data["Curva 10Yâ€“2Y"]),
+    }
+
+
+def draw_generated_report(section: str, period: str) -> None:
+    st.markdown('<div class="section-title">Informe automÃ¡tico y escenarios</div>', unsafe_allow_html=True)
+    try:
+        report = build_section_report(section, load_report_context(PERIOD_YEARS[period]))
+        st.info(report["situation"])
+        with st.expander("SeÃ±ales que sustentan el diagnÃ³stico", expanded=True):
+            for signal in report["signals"]:
+                st.write(f"â€¢ {signal}")
+        scenarios = pd.DataFrame(report["scenarios"])
+        scenarios["Probabilidad"] = scenarios["Probabilidad"].map(lambda value: f"{value}%")
+        st.dataframe(scenarios, hide_index=True, use_container_width=True)
+        st.caption(
+            "Las probabilidades suman 100% y son estimaciones heurÃ­sticas derivadas de los indicadores actuales; "
+            "no son probabilidades estadÃ­sticas calibradas ni recomendaciones de inversiÃ³n."
+        )
+        slug = {
+            "Resumen": "resumen", "Liquidez global": "liquidez-global",
+            "PolÃ­tica monetaria": "politica-monetaria", "Mercados": "mercados",
+            "Riesgo macro y crÃ©dito": "riesgo-macro-credito",
+        }[section]
+        pdf_data = build_report_pdf(section, report)
+        st.download_button(
+            "Descargar informe PDF",
+            data=pdf_data,
+            file_name=f"informe-{slug}-{date.today().isoformat()}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            key=f"download_report_pdf_{slug}",
+        )
+    except Exception as error:
+        st.warning(f"No se pudo generar el informe: {type(error).__name__}: {error}")
+
+
+def draw_fear_greed(period: str) -> None:
+    st.markdown('<div class="section-title">Fear & Greed Â· sentimiento de mercado</div>', unsafe_allow_html=True)
+    histories, errors = {}, []
+    for title, loader in (
+        ("S&P 500 Fear & Greed", load_sp500_fear_greed),
+        ("Crypto Fear & Greed", load_fear_greed),
+    ):
+        try:
+            histories[title] = loader(PERIOD_YEARS[period])
+        except Exception as error:
+            errors.append(f"{title}: {type(error).__name__}: {error}")
+
+    columns = st.columns(2)
+
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
+    for column, title in zip(columns, ("S&P 500 Fear & Greed", "Crypto Fear & Greed")):
+        with column:
+            if title in histories:
+                _sentiment_gauge(title, histories[title])
+            else:
+                st.info(f"{title}: sin datos disponibles")
+
+    if histories:
+        comparison = pd.concat(histories.values(), axis=1).sort_index().ffill()
+        st.markdown("#### EvoluciÃ³n comparada")
+        st.line_chart(comparison, y_label="Ãndice 0â€“100")
+        st.caption(
+            "Fuentes: CNN con respaldo de FearGreedChart.com (S&P 500) y Alternative.me (cripto). 0 indica miedo extremo y "
+            "100 codicia extrema. Son indicadores de sentimiento, no seÃ±ales de compra o venta."
+        )
+    for error in errors:
+        st.warning(error)
+
+
+def draw_history(period: str) -> None:
+    st.markdown('<div class="section-title">EvoluciÃ³n histÃ³rica</div>', unsafe_allow_html=True)
+    try:
+        history = load_liquidity_history(PERIOD_YEARS[period])
+        if history.empty:
+            st.info("No hay histÃ³rico disponible para el periodo seleccionado.")
+            return
+        st.line_chart(history[["US Net Liquidity"]], color="#38bdf8")
+        with st.expander("Ver componentes del cÃ¡lculo"):
+            st.line_chart(history[["Balance FED", "TGA", "Reverse Repo"]])
         st.caption(
             "Cifras en miles de millones de USD. Series alineadas al cierre semanal; "
             "los valores se mantienen hasta la siguiente publicaciÃ³n disponible."
@@ -540,6 +921,10 @@ def draw_global_liquidity(period: str) -> None:
         with st.expander("Tendencia GLI Â· EMA 10, 20, 50 y 200", expanded=True):
             st.line_chart(trends, y_label="Base 100")
 
+
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
         with st.expander("Vista TradingView Â· Global Liquidity Index", expanded=True):
             st.caption(
                 "AdaptaciÃ³n nativa basada en la metodologÃ­a pÃºblica del indicador de "
@@ -690,6 +1075,10 @@ def draw_policy_comparison(period: str) -> None:
 
 
 def _format_rate_change(value: float) -> str:
+
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
     return "Sin datos" if pd.isna(value) else f"{value:+.2f} pp"
 
 
