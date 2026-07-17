@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
 from datetime import date
 import json
 from urllib.parse import quote_plus
@@ -48,7 +45,7 @@ from utils.constants import (
     YIELD_CURVE_10Y2Y, RSP, SHANGHAI, SPY,
 )
 
-PERIOD_YEARS = {"1 aÃ±o": 1, "3 aÃ±os": 3, "5 aÃ±os": 5, "10 aÃ±os": 10}
+PERIOD_YEARS = {"1 año": 1, "3 años": 3, "5 años": 5, "10 años": 10}
 COMPARISON_ASSETS = {
     "S&P 500": SP500,
     "Nasdaq": NASDAQ,
@@ -151,11 +148,7 @@ def load_global_liquidity(years: int) -> pd.DataFrame:
     }
     for provider, status in statuses.items():
         result[f"_{provider} status"] = status
-
-Exit code: 0
-Wall time: 0.5 seconds
-Output:
-    # Columnas internas constantes: sobreviven a la serializaciÃ³n de la cachÃ©.
+    # Columnas internas constantes: sobreviven a la serialización de la caché.
     result["_Europe source value"] = float(ecb.iloc[-1])
     result["_Europe source date"] = ecb.index[-1]
     result["_Japan source value"] = float(boj.iloc[-1])
@@ -171,7 +164,7 @@ Output:
 def load_ecb_rate_history(years: int) -> pd.Series:
     start = pd.Timestamp(date.today()) - pd.DateOffset(years=years)
     rate = get_fred_history(ECB_DEPOSIT_RATE, start)
-    return rate.resample("W-FRI").last().ffill().dropna().rename("Tipo depÃ³sito BCE")
+    return rate.resample("W-FRI").last().ffill().dropna().rename("Tipo depósito BCE")
 
 
 @st.cache_data(ttl=3600)
@@ -188,7 +181,7 @@ def load_policy_rates(years: int) -> tuple[pd.DataFrame, dict]:
     ecb = get_fred_history(ECB_DEPOSIT_RATE, start).rename("BCE")
     boj = get_fred_history(BOJ_CALL_RATE, start).rename("BoJ")
     china_frame = get_china_lpr_history()
-    china_1y = china_frame["China LPR 1 aÃ±o"].rename("China LPR 1A")
+    china_1y = china_frame["China LPR 1 año"].rename("China LPR 1A")
     comparison = build_policy_comparison({
         "FED": fed, "BCE": ecb, "BoJ": boj, "China LPR 1A": china_1y,
     })
@@ -217,18 +210,18 @@ def load_sp500_fear_greed(years: int) -> pd.Series:
 def load_macro_credit_risk(years: int) -> dict:
     start = pd.Timestamp(date.today()) - pd.DateOffset(years=max(years, 3))
     return calculate_macro_credit_risk({
-        "Curva 10Yâ€“2Y": get_fred_history(YIELD_CURVE_10Y2Y, start),
+        "Curva 10Y–2Y": get_fred_history(YIELD_CURVE_10Y2Y, start),
         "Spread high yield": get_fred_history(HIGH_YIELD_SPREAD, start),
         "NFCI": get_fred_history(FINANCIAL_CONDITIONS, start),
         "IPC": get_fred_history(US_CPI, start),
         "Desempleo": get_fred_history(US_UNEMPLOYMENT, start),
-        "ProducciÃ³n industrial": get_fred_history(US_INDUSTRIAL_PRODUCTION, start),
+        "Producción industrial": get_fred_history(US_INDUSTRIAL_PRODUCTION, start),
     })
 
 
 @st.cache_data(ttl=3600)
 def load_index_analyses(years: int) -> tuple[dict, dict]:
-    # La EMA 200 mensual necesita aproximadamente 17 aÃ±os de contexto.
+    # La EMA 200 mensual necesita aproximadamente 17 años de contexto.
     start = pd.Timestamp(date.today()) - pd.DateOffset(years=20)
     analyses, errors = {}, {}
     try:
@@ -252,8 +245,8 @@ def load_sp500_breadth_data() -> dict:
 def load_equal_weight_comparison(years: int) -> pd.DataFrame:
     start = pd.Timestamp(date.today()) - pd.DateOffset(years=max(years, 3))
     histories = download_index_histories({
-        "S&P 500 Â· SPY": SPY,
-        "S&P 500 equiponderado Â· RSP": RSP,
+        "S&P 500 · SPY": SPY,
+        "S&P 500 equiponderado · RSP": RSP,
     }, start)
     comparison = pd.concat(histories, axis=1).dropna()
     return comparison.divide(comparison.iloc[0]).multiply(100)
@@ -262,8 +255,8 @@ def load_equal_weight_comparison(years: int) -> pd.DataFrame:
 def draw_header(section: str) -> None:
     st.markdown(f"""
         <div class="dashboard-header">
-            <h1 class="dashboard-title">ðŸŒ Global Liquidity Monitor</h1>
-            <p class="dashboard-subtitle">{section} Â· liquidez y condiciones financieras</p>
+            <h1 class="dashboard-title">🌍 Global Liquidity Monitor</h1>
+            <p class="dashboard-subtitle">{section} · liquidez y condiciones financieras</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -305,10 +298,6 @@ def draw_fed_cards(fred_data: dict) -> None:
 
 def draw_market_cards(market_data: dict) -> None:
     st.markdown('<div class="section-title">Mercados</div>', unsafe_allow_html=True)
-
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
     cols = st.columns(4)
     specs = [("S&P 500", "", 2), ("Nasdaq", "", 2),
              ("Bitcoin", " USD", 0), ("Oro", " USD", 2)]
@@ -334,7 +323,7 @@ def _sentiment_gauge(title: str, history: pd.Series) -> None:
         <div style="position:absolute;left:0;right:0;bottom:22px;font-size:2.5rem;font-weight:800;color:#f8fafc">{value:.0f}</div>
       </div>
       <div style="font-weight:700;color:#e5e7eb">{label}</div>
-      <div style="font-size:.78rem;color:#94a3b8;margin-top:5px">{history.index[-1].strftime('%d/%m/%Y')} Â· {provider} Â· {'En directo' if status == 'live' else 'CachÃ© local'}</div>
+      <div style="font-size:.78rem;color:#94a3b8;margin-top:5px">{history.index[-1].strftime('%d/%m/%Y')} · {provider} · {'En directo' if status == 'live' else 'Caché local'}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -344,7 +333,7 @@ def _regime_gauge(score: float, label: str, date_value: pd.Timestamp) -> None:
     angle = -90 + value * 1.8
     st.markdown(f"""
     <div style="background:#111827;border:1px solid #293449;border-radius:18px;padding:18px 18px 12px;text-align:center">
-      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">RÃ©gimen de mercado</div>
+      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Régimen de mercado</div>
       <div style="position:relative;max-width:520px;height:245px;margin:auto;overflow:hidden">
         <div style="position:absolute;width:100%;aspect-ratio:1;left:0;top:0;border-radius:50%;background:conic-gradient(from 270deg,#991b1b 0deg 36deg,#dc2626 36deg 72deg,#eab308 72deg 108deg,#65a30d 108deg 144deg,#16a34a 144deg 180deg,transparent 180deg)"></div>
         <div style="position:absolute;width:72%;aspect-ratio:1;left:14%;top:14%;border-radius:50%;background:#111827"></div>
@@ -359,7 +348,7 @@ def _regime_gauge(score: float, label: str, date_value: pd.Timestamp) -> None:
 
 
 def draw_market_regime(period: str) -> None:
-    st.markdown('<div class="section-title">RÃ©gimen de mercado Â· puntuaciÃ³n 0â€“100</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Régimen de mercado · puntuación 0–100</div>', unsafe_allow_html=True)
     try:
         years = PERIOD_YEARS[period]
         result = calculate_market_regime(
@@ -373,11 +362,11 @@ def draw_market_regime(period: str) -> None:
         _regime_gauge(result["score"], result["regime"], result["date"])
         st.dataframe(result["details"], hide_index=True, use_container_width=True)
         st.caption(
-            "75â€“100 Risk-on fuerte Â· 55â€“74 Risk-on moderado Â· 45â€“54 Neutral Â· "
-            "25â€“44 Risk-off Â· 0â€“24 Crisis de liquidez. Es una lectura orientativa, no una recomendaciÃ³n."
+            "75–100 Risk-on fuerte · 55–74 Risk-on moderado · 45–54 Neutral · "
+            "25–44 Risk-off · 0–24 Crisis de liquidez. Es una lectura orientativa, no una recomendación."
         )
     except Exception as error:
-        st.warning(f"No se pudo calcular el rÃ©gimen de mercado: {type(error).__name__}: {error}")
+        st.warning(f"No se pudo calcular el régimen de mercado: {type(error).__name__}: {error}")
 
 
 def _macro_risk_gauge(score: float, label: str, date_value: pd.Timestamp) -> None:
@@ -385,7 +374,7 @@ def _macro_risk_gauge(score: float, label: str, date_value: pd.Timestamp) -> Non
     angle = -90 + value * 1.8
     st.markdown(f"""
     <div style="background:#111827;border:1px solid #293449;border-radius:18px;padding:18px 18px 12px;text-align:center">
-      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Riesgo macro y de crÃ©dito</div>
+      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Riesgo macro y de crédito</div>
       <div style="position:relative;max-width:520px;height:245px;margin:auto;overflow:hidden">
         <div style="position:absolute;width:100%;aspect-ratio:1;left:0;top:0;border-radius:50%;background:conic-gradient(from 270deg,#16a34a 0deg 36deg,#65a30d 36deg 72deg,#eab308 72deg 108deg,#f97316 108deg 144deg,#dc2626 144deg 180deg,transparent 180deg)"></div>
         <div style="position:absolute;width:72%;aspect-ratio:1;left:14%;top:14%;border-radius:50%;background:#111827"></div>
@@ -400,7 +389,7 @@ def _macro_risk_gauge(score: float, label: str, date_value: pd.Timestamp) -> Non
 
 
 def draw_macro_credit_risk(period: str) -> None:
-    st.markdown('<div class="section-title">Riesgo macroeconÃ³mico y de crÃ©dito</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Riesgo macroeconómico y de crédito</div>', unsafe_allow_html=True)
     try:
         result = load_macro_credit_risk(PERIOD_YEARS[period])
         _macro_risk_gauge(result["score"], result["classification"], result["date"])
@@ -408,34 +397,34 @@ def draw_macro_credit_risk(period: str) -> None:
         st.markdown("#### Factores que forman el indicador")
         st.dataframe(result["details"], hide_index=True, use_container_width=True)
 
-        st.markdown("#### EvoluciÃ³n del riesgo agregado")
-        st.line_chart(result["history"], y_label="Riesgo 0â€“100")
+        st.markdown("#### Evolución del riesgo agregado")
+        st.line_chart(result["history"], y_label="Riesgo 0–100")
 
         credit_tab, conditions_tab, macro_tab = st.tabs([
-            "CrÃ©dito y curva", "Condiciones financieras", "Ciclo macro",
+            "Crédito y curva", "Condiciones financieras", "Ciclo macro",
         ])
         data = result["data"]
         with credit_tab:
             c1, c2 = st.columns(2)
             c1.metric("Spread high yield", f'{data["Spread high yield"].iloc[-1]:.2f}%')
-            c2.metric("Curva 10Yâ€“2Y", f'{data["Curva 10Yâ€“2Y"].iloc[-1]:+.2f} pp')
-            st.line_chart(data[["Spread high yield", "Curva 10Yâ€“2Y"]], y_label="Porcentaje")
-            st.caption("Un spread high yield creciente seÃ±ala mayor tensiÃ³n crediticia. Una curva invertida eleva el riesgo cÃ­clico.")
+            c2.metric("Curva 10Y–2Y", f'{data["Curva 10Y–2Y"].iloc[-1]:+.2f} pp')
+            st.line_chart(data[["Spread high yield", "Curva 10Y–2Y"]], y_label="Porcentaje")
+            st.caption("Un spread high yield creciente señala mayor tensión crediticia. Una curva invertida eleva el riesgo cíclico.")
         with conditions_tab:
             st.metric("Chicago Fed NFCI", f'{data["NFCI"].iloc[-1]:.2f}')
-            st.line_chart(data[["NFCI"]], y_label="Ãndice")
-            st.caption("NFCI positivo = condiciones mÃ¡s tensas que la media; negativo = condiciones mÃ¡s laxas.")
+            st.line_chart(data[["NFCI"]], y_label="Índice")
+            st.caption("NFCI positivo = condiciones más tensas que la media; negativo = condiciones más laxas.")
         with macro_tab:
-            macro = data[["InflaciÃ³n interanual", "Desempleo", "ProducciÃ³n industrial interanual"]]
+            macro = data[["Inflación interanual", "Desempleo", "Producción industrial interanual"]]
             st.line_chart(macro, y_label="Porcentaje")
-            st.caption("La brecha de desempleo compara su media reciente con el mÃ­nimo del Ãºltimo aÃ±o.")
+            st.caption("La brecha de desempleo compara su media reciente con el mínimo del último año.")
 
         st.caption(
-            "0â€“24 riesgo bajo Â· 25â€“44 moderado Â· 45â€“59 elevado Â· 60â€“79 alto Â· 80â€“100 extremo. "
+            "0–24 riesgo bajo · 25–44 moderado · 45–59 elevado · 60–79 alto · 80–100 extremo. "
             "Fuentes: FRED, Reserva Federal de Chicago, Tesoro de EE. UU. e ICE BofA."
         )
     except Exception as error:
-        st.warning(f"No se pudo calcular el riesgo macro y de crÃ©dito: {type(error).__name__}: {error}")
+        st.warning(f"No se pudo calcular el riesgo macro y de crédito: {type(error).__name__}: {error}")
 
 
 def _index_breadth_gauge(score: float, label: str) -> None:
@@ -443,7 +432,7 @@ def _index_breadth_gauge(score: float, label: str) -> None:
     angle = -90 + value * 1.8
     st.markdown(f"""
     <div style="background:#111827;border:1px solid #293449;border-radius:18px;padding:18px 18px 12px;text-align:center">
-      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Amplitud y confirmaciÃ³n global</div>
+      <div style="font-size:1.15rem;font-weight:700;color:#e5e7eb;margin-bottom:8px">Amplitud y confirmación global</div>
       <div style="position:relative;max-width:520px;height:245px;margin:auto;overflow:hidden">
         <div style="position:absolute;width:100%;aspect-ratio:1;left:0;top:0;border-radius:50%;background:conic-gradient(from 270deg,#dc2626 0deg 36deg,#f97316 36deg 72deg,#eab308 72deg 108deg,#84cc16 108deg 144deg,#16a34a 144deg 180deg,transparent 180deg)"></div>
         <div style="position:absolute;width:72%;aspect-ratio:1;left:14%;top:14%;border-radius:50%;background:#111827"></div>
@@ -459,10 +448,6 @@ def _index_breadth_gauge(score: float, label: str) -> None:
 def _ema_chart(frame: pd.DataFrame, years: int, title: str):
     visible_start = pd.Timestamp(date.today()) - pd.DateOffset(years=years)
     visible = frame.loc[frame.index >= visible_start].copy()
-
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
     visible.index.name = "Fecha"
     long = visible.reset_index().melt("Fecha", var_name="Serie", value_name="Valor").dropna()
     price = alt.Chart(long[long["Serie"] == "Precio"]).mark_line(
@@ -525,19 +510,19 @@ def _draw_tradingview_index(name: str) -> None:
 
 
 def _draw_indices_report(context: dict) -> None:
-    st.markdown('<div class="section-title">Informe automÃ¡tico y escenarios</div>', unsafe_allow_html=True)
-    report = build_section_report("Ãndices y amplitud", context)
+    st.markdown('<div class="section-title">Informe automático y escenarios</div>', unsafe_allow_html=True)
+    report = build_section_report("Índices y amplitud", context)
     st.info(report["situation"])
-    with st.expander("SeÃ±ales que sustentan el diagnÃ³stico", expanded=True):
+    with st.expander("Señales que sustentan el diagnóstico", expanded=True):
         for signal in report["signals"]:
-            st.write(f"â€¢ {signal}")
+            st.write(f"• {signal}")
     scenarios = pd.DataFrame(report["scenarios"])
     scenarios["Probabilidad"] = scenarios["Probabilidad"].map(lambda value: f"{value}%")
     st.dataframe(scenarios, hide_index=True, use_container_width=True)
-    st.caption("Estimaciones heurÃ­sticas derivadas de tendencia, amplitud y confirmaciÃ³n; no son recomendaciones de inversiÃ³n.")
+    st.caption("Estimaciones heurísticas derivadas de tendencia, amplitud y confirmación; no son recomendaciones de inversión.")
     st.download_button(
         "Descargar informe PDF",
-        data=build_report_pdf("Ãndices y amplitud", report),
+        data=build_report_pdf("Índices y amplitud", report),
         file_name=f"informe-indices-amplitud-{date.today().isoformat()}.pdf",
         mime="application/pdf", use_container_width=True,
         key="download_report_pdf_indices_amplitud",
@@ -545,11 +530,11 @@ def _draw_indices_report(context: dict) -> None:
 
 
 def draw_indices_breadth(period: str) -> None:
-    st.markdown('<div class="section-title">Ãndices globales Â· tendencia y amplitud</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Índices globales · tendencia y amplitud</div>', unsafe_allow_html=True)
     years = PERIOD_YEARS[period]
     analyses, errors = load_index_analyses(years)
     if not analyses:
-        st.warning("No se pudo cargar ninguno de los Ã­ndices globales.")
+        st.warning("No se pudo cargar ninguno de los índices globales.")
         return
 
     rows = []
@@ -557,21 +542,21 @@ def draw_indices_breadth(period: str) -> None:
         latest = result["daily"]["Precio"].iloc[-1]
         signal = "Alcista" if result["score"] >= 70 else "Neutral" if result["score"] >= 40 else "Bajista"
         rows.append({
-            "Ãndice": name, "Ãšltimo": f"{latest:,.2f}",
+            "Índice": name, "Último": f"{latest:,.2f}",
             "Diario": result["daily_score"], "Semanal": result["weekly_score"],
-            "Mensual": result["monthly_score"], "ConfirmaciÃ³n": result["score"],
+            "Mensual": result["monthly_score"], "Confirmación": result["score"],
             "Tendencia": signal,
         })
     summary = pd.DataFrame(rows)
-    index_score = float(summary["ConfirmaciÃ³n"].mean())
+    index_score = float(summary["Confirmación"].mean())
 
     load_full_breadth = st.toggle(
         "Calcular amplitud completa de las 500 empresas del S&P 500",
         value=False,
-        help="La primera descarga puede tardar entre 45 y 90 segundos; despuÃ©s se conserva seis horas en cachÃ©.",
+        help="La primera descarga puede tardar entre 45 y 90 segundos; después se conserva seis horas en caché.",
         key="load_full_sp500_breadth",
     )
-    breadth, breadth_error = None, "Activa el cÃ¡lculo completo para ver los componentes internos."
+    breadth, breadth_error = None, "Activa el cálculo completo para ver los componentes internos."
     if load_full_breadth:
         try:
             with st.spinner("Calculando amplitud de los componentes del S&P 500..."):
@@ -591,8 +576,8 @@ def draw_indices_breadth(period: str) -> None:
     if breadth:
         breadth_values = breadth["breadth"].iloc[-1].to_dict()
         breadth_score = float(pd.Series(breadth_values).mean())
-        new_highs = int(breadth["highs_lows"]["Nuevos mÃ¡ximos"].iloc[-1])
-        new_lows = int(breadth["highs_lows"]["Nuevos mÃ­nimos"].iloc[-1])
+        new_highs = int(breadth["highs_lows"]["Nuevos máximos"].iloc[-1])
+        new_lows = int(breadth["highs_lows"]["Nuevos mínimos"].iloc[-1])
 
     rsp_relative = 100.0
     equal_score = 50.0
@@ -600,28 +585,24 @@ def draw_indices_breadth(period: str) -> None:
         rsp_relative = float(equal_weight.iloc[-1, 1] / equal_weight.iloc[-1, 0] * 100)
         equal_score = 70.0 if rsp_relative >= 100 else 35.0
     global_score = index_score * 0.50 + breadth_score * 0.35 + equal_score * 0.15
-    label = "Amplitud fuerte" if global_score >= 70 else "Amplitud saludable" if global_score >= 55 else "Amplitud neutral" if global_score >= 40 else "Amplitud dÃ©bil"
+    label = "Amplitud fuerte" if global_score >= 70 else "Amplitud saludable" if global_score >= 55 else "Amplitud neutral" if global_score >= 40 else "Amplitud débil"
     _index_breadth_gauge(global_score, label)
 
-    st.markdown("#### ConfirmaciÃ³n entre Ã­ndices y temporalidades")
+    st.markdown("#### Confirmación entre índices y temporalidades")
     st.dataframe(summary, hide_index=True, use_container_width=True)
 
-    selected = st.selectbox("Ãndice para analizar", list(analyses), key="selected_global_index")
+    selected = st.selectbox("Índice para analizar", list(analyses), key="selected_global_index")
     result = analyses[selected]
     daily_tab, weekly_tab, monthly_tab = st.tabs(["Diario", "Semanal", "Mensual"])
     with daily_tab:
-        st.altair_chart(_ema_chart(result["daily"], years, f"{selected} Â· diario"), use_container_width=True)
+        st.altair_chart(_ema_chart(result["daily"], years, f"{selected} · diario"), use_container_width=True)
     with weekly_tab:
-        st.altair_chart(_ema_chart(result["weekly"], years, f"{selected} Â· semanal"), use_container_width=True)
-
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
+        st.altair_chart(_ema_chart(result["weekly"], years, f"{selected} · semanal"), use_container_width=True)
     with monthly_tab:
-        st.altair_chart(_ema_chart(result["monthly"], years, f"{selected} Â· mensual"), use_container_width=True)
-    st.caption("Precio en lÃ­nea continua. EMA 10, 20, 34, 50 y 200 en lÃ­neas discontinuas; todas calculadas sobre su propia temporalidad.")
+        st.altair_chart(_ema_chart(result["monthly"], years, f"{selected} · mensual"), use_container_width=True)
+    st.caption("Precio en línea continua. EMA 10, 20, 34, 50 y 200 en líneas discontinuas; todas calculadas sobre su propia temporalidad.")
 
-    with st.expander("GrÃ¡fico oficial de TradingView", expanded=False):
+    with st.expander("Gráfico oficial de TradingView", expanded=False):
         _draw_tradingview_index(selected)
 
     st.markdown("#### Divergencias detectadas")
@@ -633,9 +614,9 @@ Output:
         if item["score"] <= index_score - 25:
             divergences.append(f"{name}: debilidad relativa frente al conjunto global.")
     if rsp_relative < 98:
-        divergences.append("RSP rinde claramente peor que SPY: el avance depende mÃ¡s de las compaÃ±Ã­as de mayor capitalizaciÃ³n.")
+        divergences.append("RSP rinde claramente peor que SPY: el avance depende más de las compañías de mayor capitalización.")
     if not divergences:
-        st.success("No se observan divergencias relevantes entre Ã­ndices, temporalidades o ponderaciones.")
+        st.success("No se observan divergencias relevantes entre índices, temporalidades o ponderaciones.")
     else:
         for message in divergences:
             st.warning(message)
@@ -650,21 +631,21 @@ Output:
         st.line_chart(breadth["breadth"], y_label="Porcentaje")
         ad_col, hl_col = st.columns(2)
         with ad_col:
-            st.markdown("##### LÃ­nea avance/descenso")
+            st.markdown("##### Línea avance/descenso")
             st.line_chart(breadth["advance_decline"])
         with hl_col:
-            st.markdown("##### Nuevos mÃ¡ximos y mÃ­nimos")
+            st.markdown("##### Nuevos máximos y mínimos")
             st.line_chart(breadth["highs_lows"])
-            st.caption(f"Ãšltima lectura: {new_highs} mÃ¡ximos y {new_lows} mÃ­nimos de 52 semanas.")
+            st.caption(f"Última lectura: {new_highs} máximos y {new_lows} mínimos de 52 semanas.")
     else:
         st.warning(f"Amplitud por componentes no disponible: {breadth_error}")
 
     st.markdown("#### S&P 500 tradicional frente al equiponderado")
     if equal_weight is not None:
         st.line_chart(equal_weight, y_label="Base 100")
-        st.caption(f"RSP relativo a SPY desde el inicio del periodo: {rsp_relative:.1f}. Por debajo de 100 indica liderazgo mÃ¡s concentrado.")
+        st.caption(f"RSP relativo a SPY desde el inicio del periodo: {rsp_relative:.1f}. Por debajo de 100 indica liderazgo más concentrado.")
     else:
-        st.warning(f"ComparaciÃ³n SPY/RSP no disponible: {equal_error}")
+        st.warning(f"Comparación SPY/RSP no disponible: {equal_error}")
 
     for name, error in errors.items():
         st.warning(f"{name}: {error}")
@@ -713,33 +694,33 @@ def load_report_context(years: int) -> dict:
         "fed_rate": float(fed_rate.iloc[-1]),
         "fed_rate_change": float(fed_rate.iloc[-1] - fed_rate.iloc[fed_position]),
         "sentiment": float(sentiment.iloc[-1]),
-        "inflation": float(macro_data["InflaciÃ³n interanual"]),
+        "inflation": float(macro_data["Inflación interanual"]),
         "unemployment": float(macro_data["Desempleo"]),
         "hy_spread": float(macro_data["Spread high yield"]),
         "nfci": float(macro_data["NFCI"]),
-        "yield_curve": float(macro_data["Curva 10Yâ€“2Y"]),
+        "yield_curve": float(macro_data["Curva 10Y–2Y"]),
     }
 
 
 def draw_generated_report(section: str, period: str) -> None:
-    st.markdown('<div class="section-title">Informe automÃ¡tico y escenarios</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Informe automático y escenarios</div>', unsafe_allow_html=True)
     try:
         report = build_section_report(section, load_report_context(PERIOD_YEARS[period]))
         st.info(report["situation"])
-        with st.expander("SeÃ±ales que sustentan el diagnÃ³stico", expanded=True):
+        with st.expander("Señales que sustentan el diagnóstico", expanded=True):
             for signal in report["signals"]:
-                st.write(f"â€¢ {signal}")
+                st.write(f"• {signal}")
         scenarios = pd.DataFrame(report["scenarios"])
         scenarios["Probabilidad"] = scenarios["Probabilidad"].map(lambda value: f"{value}%")
         st.dataframe(scenarios, hide_index=True, use_container_width=True)
         st.caption(
-            "Las probabilidades suman 100% y son estimaciones heurÃ­sticas derivadas de los indicadores actuales; "
-            "no son probabilidades estadÃ­sticas calibradas ni recomendaciones de inversiÃ³n."
+            "Las probabilidades suman 100% y son estimaciones heurísticas derivadas de los indicadores actuales; "
+            "no son probabilidades estadísticas calibradas ni recomendaciones de inversión."
         )
         slug = {
             "Resumen": "resumen", "Liquidez global": "liquidez-global",
-            "PolÃ­tica monetaria": "politica-monetaria", "Mercados": "mercados",
-            "Riesgo macro y crÃ©dito": "riesgo-macro-credito",
+            "Política monetaria": "politica-monetaria", "Mercados": "mercados",
+            "Riesgo macro y crédito": "riesgo-macro-credito",
         }[section]
         pdf_data = build_report_pdf(section, report)
         st.download_button(
@@ -755,7 +736,7 @@ def draw_generated_report(section: str, period: str) -> None:
 
 
 def draw_fear_greed(period: str) -> None:
-    st.markdown('<div class="section-title">Fear & Greed Â· sentimiento de mercado</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Fear & Greed · sentimiento de mercado</div>', unsafe_allow_html=True)
     histories, errors = {}, []
     for title, loader in (
         ("S&P 500 Fear & Greed", load_sp500_fear_greed),
@@ -767,10 +748,6 @@ def draw_fear_greed(period: str) -> None:
             errors.append(f"{title}: {type(error).__name__}: {error}")
 
     columns = st.columns(2)
-
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
     for column, title in zip(columns, ("S&P 500 Fear & Greed", "Crypto Fear & Greed")):
         with column:
             if title in histories:
@@ -780,32 +757,32 @@ Output:
 
     if histories:
         comparison = pd.concat(histories.values(), axis=1).sort_index().ffill()
-        st.markdown("#### EvoluciÃ³n comparada")
-        st.line_chart(comparison, y_label="Ãndice 0â€“100")
+        st.markdown("#### Evolución comparada")
+        st.line_chart(comparison, y_label="Índice 0–100")
         st.caption(
             "Fuentes: CNN con respaldo de FearGreedChart.com (S&P 500) y Alternative.me (cripto). 0 indica miedo extremo y "
-            "100 codicia extrema. Son indicadores de sentimiento, no seÃ±ales de compra o venta."
+            "100 codicia extrema. Son indicadores de sentimiento, no señales de compra o venta."
         )
     for error in errors:
         st.warning(error)
 
 
 def draw_history(period: str) -> None:
-    st.markdown('<div class="section-title">EvoluciÃ³n histÃ³rica</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Evolución histórica</div>', unsafe_allow_html=True)
     try:
         history = load_liquidity_history(PERIOD_YEARS[period])
         if history.empty:
-            st.info("No hay histÃ³rico disponible para el periodo seleccionado.")
+            st.info("No hay histórico disponible para el periodo seleccionado.")
             return
         st.line_chart(history[["US Net Liquidity"]], color="#38bdf8")
-        with st.expander("Ver componentes del cÃ¡lculo"):
+        with st.expander("Ver componentes del cálculo"):
             st.line_chart(history[["Balance FED", "TGA", "Reverse Repo"]])
         st.caption(
             "Cifras en miles de millones de USD. Series alineadas al cierre semanal; "
-            "los valores se mantienen hasta la siguiente publicaciÃ³n disponible."
+            "los valores se mantienen hasta la siguiente publicación disponible."
         )
     except Exception as error:
-        st.warning(f"No se pudo cargar el histÃ³rico: {type(error).__name__}: {error}")
+        st.warning(f"No se pudo cargar el histórico: {type(error).__name__}: {error}")
 
 
 def draw_market_comparison(period: str) -> None:
@@ -822,25 +799,25 @@ def draw_market_comparison(period: str) -> None:
         normalized, trends = load_comparison(PERIOD_YEARS[period], asset_name)
         st.line_chart(normalized)
         st.caption(
-            "ComparaciÃ³n base 100 desde la primera fecha comÃºn. "
-            "Las dos curvas muestran evoluciÃ³n relativa, no importes absolutos."
+            "Comparación base 100 desde la primera fecha común. "
+            "Las dos curvas muestran evolución relativa, no importes absolutos."
         )
 
-        with st.expander("Tendencia del activo Â· EMA 10, 20, 50 y 200", expanded=True):
+        with st.expander("Tendencia del activo · EMA 10, 20, 50 y 200", expanded=True):
             st.line_chart(trends)
             latest = trends.iloc[-1]
             signal = "Alcista" if latest[asset_name] > latest["EMA 200"] else "Bajista"
             st.metric("Tendencia frente a EMA 200", signal)
             st.caption(
-                "Medias mÃ³viles exponenciales calculadas sobre cierres semanales "
+                "Medias móviles exponenciales calculadas sobre cierres semanales "
                 "y expresadas en la misma escala base 100."
             )
     except Exception as error:
-        st.warning(f"No se pudo construir la comparaciÃ³n: {type(error).__name__}: {error}")
+        st.warning(f"No se pudo construir la comparación: {type(error).__name__}: {error}")
 
 
 def draw_global_liquidity(period: str) -> None:
-    st.markdown('<div class="section-title">Global Liquidity Index Â· v1.0</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Global Liquidity Index · v1.0</div>', unsafe_allow_html=True)
     try:
         history = load_global_liquidity(PERIOD_YEARS[period])
         if history.empty:
@@ -853,7 +830,7 @@ def draw_global_liquidity(period: str) -> None:
         above_200 = trends["GLI"].iloc[-1] >= trends["EMA 200"].iloc[-1]
         c1, c2, c3 = st.columns(3)
         c1.metric("GLI", f"{latest:,.2f} T USD")
-        c2.metric("VariaciÃ³n 4 semanas", "Sin datos" if pd.isna(monthly) else f"{monthly:+.2f}%")
+        c2.metric("Variación 4 semanas", "Sin datos" if pd.isna(monthly) else f"{monthly:+.2f}%")
         c3.metric("Tendencia EMA 200", "Alcista" if above_200 else "Bajista")
 
         europe = {
@@ -875,7 +852,7 @@ def draw_global_liquidity(period: str) -> None:
             if europe:
                 europe_trillion_eur = europe["value"] / 1_000_000
                 st.metric(
-                    "BCE Â· Ãºltimo balance",
+                    "BCE · último balance",
                     f"{europe_trillion_eur:,.2f} T EUR",
                     f'{history["BCE"].iloc[-1]:,.2f} T USD aprox.',
                 )
@@ -884,7 +861,7 @@ def draw_global_liquidity(period: str) -> None:
             if japan:
                 japan_trillion_yen = japan["value"] * 0.0001
                 st.metric(
-                    "Banco de JapÃ³n Â· Ãºltimo dato",
+                    "Banco de Japón · último dato",
                     f"{japan_trillion_yen:,.2f} T JPY",
                     f'{history["BoJ"].iloc[-1]:,.2f} T USD aprox.',
                 )
@@ -893,7 +870,7 @@ def draw_global_liquidity(period: str) -> None:
             if china:
                 china_trillion_cny = china["value"] * 0.0001
                 st.metric(
-                    "China M2 Â· Ãºltimo dato",
+                    "China M2 · último dato",
                     f"{china_trillion_cny:,.2f} T CNY",
                     f'{history["China M2"].iloc[-1]:,.2f} T USD aprox.',
                 )
@@ -901,11 +878,11 @@ def draw_global_liquidity(period: str) -> None:
 
         rate1, rate2 = st.columns([1, 2])
         with rate1:
-            st.metric("Tipo de depÃ³sito BCE", f"{ecb_rate.iloc[-1]:.2f}%")
+            st.metric("Tipo de depósito BCE", f"{ecb_rate.iloc[-1]:.2f}%")
             st.caption(f'Fecha del tipo: {ecb_rate.index[-1].strftime("%d/%m/%Y")}')
         with rate2:
             st.line_chart(ecb_rate, y_label="Porcentaje")
-            st.caption("EvoluciÃ³n semanal del tipo de la facilidad de depÃ³sito del BCE.")
+            st.caption("Evolución semanal del tipo de la facilidad de depósito del BCE.")
 
         us1, us2 = st.columns([1, 2])
         with us1:
@@ -913,22 +890,18 @@ def draw_global_liquidity(period: str) -> None:
             st.caption(f'Fecha del tipo: {fed_rate.index[-1].strftime("%d/%m/%Y")}')
         with us2:
             st.line_chart(fed_rate, y_label="Porcentaje")
-            st.caption("EvoluciÃ³n semanal del tipo efectivo de los fondos federales de EE. UU.")
+            st.caption("Evolución semanal del tipo efectivo de los fondos federales de EE. UU.")
 
         st.line_chart(history[["GLI"]], y_label="Billones USD")
-        with st.expander("ComposiciÃ³n global"):
+        with st.expander("Composición global"):
             st.area_chart(history[["FED", "BCE", "BoJ", "China M2"]], y_label="Billones USD")
-        with st.expander("Tendencia GLI Â· EMA 10, 20, 50 y 200", expanded=True):
+        with st.expander("Tendencia GLI · EMA 10, 20, 50 y 200", expanded=True):
             st.line_chart(trends, y_label="Base 100")
 
-
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
-        with st.expander("Vista TradingView Â· Global Liquidity Index", expanded=True):
+        with st.expander("Vista TradingView · Global Liquidity Index", expanded=True):
             st.caption(
-                "AdaptaciÃ³n nativa basada en la metodologÃ­a pÃºblica del indicador de "
-                "QuantitativeAlpha. Conserva nuestras fuentes y fechas de actualizaciÃ³n."
+                "Adaptación nativa basada en la metodología pública del indicador de "
+                "QuantitativeAlpha. Conserva nuestras fuentes y fechas de actualización."
             )
             available_components = [
                 "Balance FED", "Cuenta del Tesoro (TGA)", "Reverse Repo",
@@ -936,19 +909,19 @@ Output:
                 "Oferta monetaria China",
             ]
             selected_components = st.multiselect(
-                "Componentes del Ã­ndice",
+                "Componentes del índice",
                 available_components,
                 default=["Balance FED", "Balance BCE", "Balance BoJ", "Oferta monetaria China"],
                 key="tradingview_gli_components",
             )
             st.caption(
                 "TGA y Reverse Repo se restan; el resto se suma. Pendientes de una fuente estable: "
-                "balance PBoC, otros bancos centrales y oferta monetaria de Europa y JapÃ³n."
+                "balance PBoC, otros bancos centrales y oferta monetaria de Europa y Japón."
             )
             tv1, tv2, tv3 = st.columns([2, 1, 1])
             mode = tv1.selectbox(
                 "Lectura",
-                ["Nivel", "VariaciÃ³n interanual", "VariaciÃ³n 6 meses", "VariaciÃ³n 3 meses", "VariaciÃ³n mensual"],
+                ["Nivel", "Variación interanual", "Variación 6 meses", "Variación 3 meses", "Variación mensual"],
                 key="tradingview_gli_mode",
             )
             smoothing = tv2.selectbox(
@@ -958,20 +931,20 @@ Output:
             )
             offset = tv3.selectbox(
                 "Desplazamiento", [0, 30, 60, 90],
-                format_func=lambda value: "Sin desplazar" if value == 0 else f"{value} dÃ­as",
+                format_func=lambda value: "Sin desplazar" if value == 0 else f"{value} días",
                 key="tradingview_gli_offset",
             )
             if not selected_components:
-                st.warning("Selecciona al menos un componente para calcular el Ã­ndice.")
+                st.warning("Selecciona al menos un componente para calcular el índice.")
             else:
                 custom_gli = build_custom_gli(history, selected_components)
                 tv_series = build_tradingview_view(custom_gli, mode, smoothing, offset)
             if selected_components and tv_series.empty:
-                st.info("El periodo elegido todavÃ­a no permite calcular esta variaciÃ³n.")
+                st.info("El periodo elegido todavía no permite calcular esta variación.")
             elif selected_components:
                 value = tv_series.iloc[-1]
                 unit = "T USD" if mode == "Nivel" else "%"
-                st.metric(f"Ãšltima lectura Â· {mode}", f"{value:,.2f} {unit}")
+                st.metric(f"Última lectura · {mode}", f"{value:,.2f} {unit}")
                 st.line_chart(tv_series, y_label=unit)
             st.link_button(
                 "Abrir indicador original en TradingView",
@@ -979,25 +952,25 @@ Output:
                 use_container_width=True,
             )
             st.caption(
-                "No ejecuta cÃ³digo Pine externo: aplica las mismas vistas analÃ­ticas al GLI "
-                "del dashboard. El desplazamiento mueve la curva hacia delante en dÃ­as naturales."
+                "No ejecuta código Pine externo: aplica las mismas vistas analíticas al GLI "
+                "del dashboard. El desplazamiento mueve la curva hacia delante en días naturales."
             )
 
         st.caption(
             "GLI ampliado = activos de FED + BCE + BoJ + China M2 como proxy, convertidos a USD. "
-            "La composiciÃ³n separa el proxy chino para evitar confundir M2 con activos de banco central."
+            "La composición separa el proxy chino para evitar confundir M2 con activos de banco central."
         )
         status_labels = []
         for provider in ("FED", "BCE", "BoJ", "China"):
             status = history[f"_{provider} status"].iloc[-1]
-            status_labels.append(f"{provider}: {'en directo' if status == 'live' else 'cachÃ© local'}")
-        st.caption("Estado de fuentes Â· " + " Â· ".join(status_labels))
+            status_labels.append(f"{provider}: {'en directo' if status == 'live' else 'caché local'}")
+        st.caption("Estado de fuentes · " + " · ".join(status_labels))
     except Exception as error:
         st.warning(f"No se pudo calcular el GLI: {type(error).__name__}: {error}")
 
 
 def draw_gli_intelligence(period: str) -> None:
-    st.markdown('<div class="section-title">GLI frente a mercados y seÃ±ales</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">GLI frente a mercados y señales</div>', unsafe_allow_html=True)
     left, right = st.columns(2)
     asset_name = left.selectbox("Activo GLI", list(COMPARISON_ASSETS), key="gli_asset")
     lag = right.selectbox("Adelanto del GLI", [0, 4, 8, 12, 16], format_func=lambda x: f"{x} semanas")
@@ -1007,44 +980,44 @@ def draw_gli_intelligence(period: str) -> None:
         asset = load_asset_history(years, asset_name)
         comparison, correlation = compare_gli_with_asset(history["GLI"], asset, lag)
         comparison = comparison.rename(columns={"Activo": asset_name})
-        st.metric("CorrelaciÃ³n de variaciones semanales", f"{correlation:+.2f}")
+        st.metric("Correlación de variaciones semanales", f"{correlation:+.2f}")
         st.line_chart(comparison, y_label="Base 100")
 
         aligned_asset = asset.resample("W-FRI").last().ffill()
         analysis = interpret_liquidity(history["GLI"], aligned_asset)
         regime = analysis["regime"]
         if regime == "Expansivo":
-            st.success(f"RÃ©gimen de liquidez: {regime}")
+            st.success(f"Régimen de liquidez: {regime}")
         elif regime == "Contractivo":
-            st.error(f"RÃ©gimen de liquidez: {regime}")
+            st.error(f"Régimen de liquidez: {regime}")
         else:
-            st.info(f"RÃ©gimen de liquidez: {regime}")
+            st.info(f"Régimen de liquidez: {regime}")
         for message in analysis["messages"]:
-            st.write(f"â€¢ {message}")
+            st.write(f"• {message}")
 
         threshold = st.number_input(
-            "Alertar si la variaciÃ³n de 4 semanas cae por debajo de (%)",
+            "Alertar si la variación de 4 semanas cae por debajo de (%)",
             min_value=-20.0, max_value=5.0, value=-1.0, step=0.5,
         )
         if analysis.get("change4", 0) <= threshold:
             st.error(f"Alerta activa: GLI {analysis['change4']:+.2f}% en cuatro semanas.")
         else:
-            st.success("Sin alerta de contracciÃ³n activa.")
+            st.success("Sin alerta de contracción activa.")
 
         report = build_markdown_report(history, analysis, asset_name)
         st.download_button(
-            "Descargar informe automÃ¡tico",
+            "Descargar informe automático",
             data=report.encode("utf-8"),
             file_name=f"informe-liquidez-{date.today().isoformat()}.md",
             mime="text/markdown",
             use_container_width=True,
         )
     except Exception as error:
-        st.warning(f"No se pudo generar el anÃ¡lisis GLI: {type(error).__name__}: {error}")
+        st.warning(f"No se pudo generar el análisis GLI: {type(error).__name__}: {error}")
 
 
 def draw_policy_comparison(period: str) -> None:
-    st.markdown('<div class="section-title">PolÃ­tica monetaria global</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Política monetaria global</div>', unsafe_allow_html=True)
     try:
         rates, source_dates = load_policy_rates(PERIOD_YEARS[period])
         rows = []
@@ -1056,7 +1029,7 @@ def draw_policy_comparison(period: str) -> None:
                 "3 meses": _format_rate_change(rate_change(series, 3)),
                 "6 meses": _format_rate_change(rate_change(series, 6)),
                 "12 meses": _format_rate_change(rate_change(series, 12)),
-                "OrientaciÃ³n": classify_policy(series),
+                "Orientación": classify_policy(series),
                 "Fecha": pd.Timestamp(source_dates[name]).strftime("%d/%m/%Y"),
             })
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
@@ -1064,10 +1037,10 @@ def draw_policy_comparison(period: str) -> None:
 
         china = get_china_lpr_history().iloc[-1]
         c1, c2 = st.columns(2)
-        c1.metric("China LPR 1 aÃ±o", f'{china["China LPR 1 aÃ±o"]:.2f}%')
-        c2.metric("China LPR 5 aÃ±os", f'{china["China LPR 5 aÃ±os"]:.2f}%')
+        c1.metric("China LPR 1 año", f'{china["China LPR 1 año"]:.2f}%')
+        c2.metric("China LPR 5 años", f'{china["China LPR 5 años"]:.2f}%')
         st.caption(
-            "FED: tipo efectivo Â· BCE: facilidad de depÃ³sito Â· BoJ: call rate overnight Â· "
+            "FED: tipo efectivo · BCE: facilidad de depósito · BoJ: call rate overnight · "
             "China: Loan Prime Rate. Los cambios se expresan en puntos porcentuales."
         )
     except Exception as error:
@@ -1075,23 +1048,19 @@ def draw_policy_comparison(period: str) -> None:
 
 
 def _format_rate_change(value: float) -> str:
-
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
     return "Sin datos" if pd.isna(value) else f"{value:+.2f} pp"
 
 
 def draw_connection_status(market_data: dict, fred_data: dict, net: dict) -> None:
     with st.expander("Estado de las conexiones"):
         errors = {
-            **{f"Mercado Â· {k}": v["error"] for k, v in market_data.items() if v.get("error")},
-            **{f"FRED Â· {k}": v["error"] for k, v in fred_data.items() if v.get("error")},
+            **{f"Mercado · {k}": v["error"] for k, v in market_data.items() if v.get("error")},
+            **{f"FRED · {k}": v["error"] for k, v in fred_data.items() if v.get("error")},
         }
         if net.get("error"):
-            errors["CÃ¡lculo Â· US Net Liquidity"] = net["error"]
+            errors["Cálculo · US Net Liquidity"] = net["error"]
         if not errors:
-            st.success("Yahoo Finance, FRED y el cÃ¡lculo de liquidez funcionan correctamente.")
+            st.success("Yahoo Finance, FRED y el cálculo de liquidez funcionan correctamente.")
         else:
             st.warning("Algunos indicadores no se pudieron descargar o calcular.")
             for name, error in errors.items():
@@ -1109,13 +1078,13 @@ def load_bls_calendar() -> pd.DataFrame:
 
 
 def draw_us_economy() -> None:
-    st.markdown('<div class="section-title">Ãšltimos datos de la economÃ­a de EEUU</div>', unsafe_allow_html=True)
-    st.caption("InflaciÃ³n, empleo, salarios y actividad. HistÃ³rico oficial de los Ãºltimos 12 meses.")
+    st.markdown('<div class="section-title">Últimos datos de la economía de EEUU</div>', unsafe_allow_html=True)
+    st.caption("Inflación, empleo, salarios y actividad. Histórico oficial de los últimos 12 meses.")
     try:
         history = load_us_macro_history()
         latest = latest_us_macro(history)
         labels = [
-            "IPC interanual", "IPC subyacente interanual", "NÃ³minas no agrÃ­colas",
+            "IPC interanual", "IPC subyacente interanual", "Nóminas no agrícolas",
             "Desempleo", "Salarios interanual", "Ventas minoristas mensual",
         ]
         for start in range(0, len(labels), 3):
@@ -1130,44 +1099,44 @@ def draw_us_economy() -> None:
                 value = f'{item["value"]:,.{decimals}f}{suffix}'
                 delta = None if item["previous"] is None else f'{item["value"] - item["previous"]:+,.{decimals}f}'
                 column.metric(label, value, delta)
-                column.caption(f'Dato de {item["date"].strftime("%m/%Y")} Â· variaciÃ³n frente al dato anterior')
+                column.caption(f'Dato de {item["date"].strftime("%m/%Y")} · variación frente al dato anterior')
 
-        st.markdown('<div class="section-title">Tabla de los Ãºltimos 12 meses</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Tabla de los últimos 12 meses</div>', unsafe_allow_html=True)
         table = history.reset_index().rename(columns={"index": "Mes"})
         table["Mes"] = table["Mes"].dt.strftime("%m/%Y")
         st.dataframe(
             table.style.format({
                 "IPC interanual": "{:.1f}%",
                 "IPC subyacente interanual": "{:.1f}%",
-                "NÃ³minas no agrÃ­colas": "{:+,.0f} mil",
+                "Nóminas no agrícolas": "{:+,.0f} mil",
                 "Desempleo": "{:.1f}%",
                 "Salarios interanual": "{:.1f}%",
                 "Ventas minoristas mensual": "{:+.1f}%",
-                "ProducciÃ³n industrial interanual": "{:+.1f}%",
-            }, na_rep="â€”"),
+                "Producción industrial interanual": "{:+.1f}%",
+            }, na_rep="—"),
             hide_index=True, use_container_width=True,
         )
 
         chart_data = history[["IPC interanual", "IPC subyacente interanual", "Salarios interanual"]]
-        st.line_chart(chart_data, y_label="VariaciÃ³n interanual (%)")
+        st.line_chart(chart_data, y_label="Variación interanual (%)")
         source_status = history.attrs.get("source_status", {})
         cached = [name for name, status in source_status.items() if status != "live"]
-        st.caption("Fuente: FRED / BLS." + (f" En cachÃ©: {', '.join(cached)}." if cached else " Datos en directo."))
+        st.caption("Fuente: FRED / BLS." + (f" En caché: {', '.join(cached)}." if cached else " Datos en directo."))
     except Exception as error:
-        st.warning(f"No se pudieron cargar los datos econÃ³micos: {type(error).__name__}: {error}")
+        st.warning(f"No se pudieron cargar los datos económicos: {type(error).__name__}: {error}")
 
-    st.markdown('<div class="section-title">PrÃ³ximas publicaciones</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Próximas publicaciones</div>', unsafe_allow_html=True)
     try:
         calendar = load_bls_calendar()
         if calendar.empty:
-            st.info("El calendario oficial no ha publicado todavÃ­a nuevas fechas.")
+            st.info("El calendario oficial no ha publicado todavía nuevas fechas.")
         else:
             shown = calendar.copy()
-            shown["Fecha"] = shown["Fecha"].dt.strftime("%d/%m/%Y Â· %H:%M ET")
+            shown["Fecha"] = shown["Fecha"].dt.strftime("%d/%m/%Y · %H:%M ET")
             st.dataframe(shown, hide_index=True, use_container_width=True)
             next_release = calendar.iloc[0]
             days = max(0, (next_release["Fecha"].normalize() - pd.Timestamp.today().normalize()).days)
-            st.info(f'PrÃ³xima: {next_release["PublicaciÃ³n"]} Â· {next_release["Fecha"].strftime("%d/%m/%Y")} Â· dentro de {days} dÃ­as.')
+            st.info(f'Próxima: {next_release["Publicación"]} · {next_release["Fecha"].strftime("%d/%m/%Y")} · dentro de {days} días.')
         st.link_button("Abrir calendario oficial del BLS", "https://www.bls.gov/schedule/", use_container_width=True)
         st.caption("Horas expresadas en horario del Este de EEUU (ET). El BLS puede revisar las fechas.")
     except Exception as error:
@@ -1175,10 +1144,10 @@ def draw_us_economy() -> None:
         st.link_button("Consultar calendario oficial", "https://www.bls.gov/schedule/", use_container_width=True)
 
 
-def draw_dashboard(section: str = "Resumen", period: str = "3 aÃ±os") -> None:
+def draw_dashboard(section: str = "Resumen", period: str = "3 años") -> None:
     draw_header(section)
-    market_data = load_market_data() if section in {"Resumen", "Mercados", "Datos y diagnÃ³stico"} else {}
-    fred_data = load_fred_data() if section in {"Resumen", "Liquidez global", "Datos y diagnÃ³stico"} else {}
+    market_data = load_market_data() if section in {"Resumen", "Mercados", "Datos y diagnóstico"} else {}
+    fred_data = load_fred_data() if section in {"Resumen", "Liquidez global", "Datos y diagnóstico"} else {}
     if section == "Resumen":
         net = draw_summary(market_data, fred_data)
     elif fred_data:
@@ -1197,7 +1166,7 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 aÃ±os") -> None:
         draw_fed_cards(fred_data)
         draw_history(period)
         draw_gli_intelligence(period)
-    elif section == "PolÃ­tica monetaria":
+    elif section == "Política monetaria":
         draw_policy_comparison(period)
     elif section == "Mercados":
         draw_market_cards(market_data)
@@ -1205,24 +1174,23 @@ def draw_dashboard(section: str = "Resumen", period: str = "3 aÃ±os") -> None:
         draw_fear_greed(period)
         draw_market_comparison(period)
         draw_gli_intelligence(period)
-    elif section == "Riesgo macro y crÃ©dito":
+    elif section == "Riesgo macro y crédito":
         draw_macro_credit_risk(period)
-    elif section == "Ãndices y amplitud":
+    elif section == "Índices y amplitud":
         draw_indices_breadth(period)
-    elif section == "EconomÃ­a EEUU":
+    elif section == "Economía EEUU":
         draw_us_economy()
-    elif section == "Datos y diagnÃ³stico":
+    elif section == "Datos y diagnóstico":
         draw_connection_status(market_data, fred_data, net)
         st.caption("Registro local: cache/diagnostics.log")
 
     if section in {
-        "Resumen", "Liquidez global", "PolÃ­tica monetaria", "Mercados",
-        "Riesgo macro y crÃ©dito",
+        "Resumen", "Liquidez global", "Política monetaria", "Mercados",
+        "Riesgo macro y crédito",
     }:
         draw_generated_report(section, period)
 
     st.caption(
-        "US Net Liquidity = Balance FED âˆ’ TGA âˆ’ Reverse Repo. "
-        "AproximaciÃ³n orientativa; no es una medida oficial de la Reserva Federal."
+        "US Net Liquidity = Balance FED − TGA − Reverse Repo. "
+        "Aproximación orientativa; no es una medida oficial de la Reserva Federal."
     )
-
